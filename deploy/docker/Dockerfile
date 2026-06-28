@@ -272,22 +272,25 @@ RUN curl -fsSL https://cli.kiro.dev/install | bash \
 # The official bootstrapper has NO version flag — it always fetches the LATEST
 # build from its auto-updater manifest (verified: only ``-d/--dir`` and ``-h`` are
 # accepted; it does SHA512-verify the payload, but only against that latest-pointing
-# manifest). So the DOWNLOAD itself cannot be pinned here. Instead we pin the
-# ACCEPTED version and FAIL THE BUILD if the installer served a different one —
-# turning a future silent harness break (a newer agy whose behavior diverged) into
-# a visible, conscious bump. To adopt a new agy: re-verify the coupled behavior,
-# then bump AGY_EXPECTED_VERSION (override at build with --build-arg if needed).
+# manifest). So the DOWNLOAD itself cannot be pinned here. Upstream pins the
+# ACCEPTED version and FAILS THE BUILD on a mismatch. **liteai-9a fork override:**
+# we run claude-native, not antigravity, so we keep installing agy (cheap, and
+# present if ever needed) but DOWNGRADE the version-mismatch to a non-fatal
+# WARNING — upstream's always-latest bootstrapper would otherwise break every
+# host rebuild whenever antigravity ships a release, blocking our parity builds
+# for a harness we don't use. If antigravity is ever adopted here, re-verify the
+# coupled behavior and bump AGY_EXPECTED_VERSION (override at build with --build-arg).
 ARG AGY_EXPECTED_VERSION=1.0.10
 RUN curl -fsSL https://antigravity.google/cli/install.sh | bash \
  && install -m 0755 "${HOME:-/root}/.local/bin/agy" /usr/local/bin/agy \
  && test -x /usr/local/bin/agy \
  && installed_agy_version="$(/usr/local/bin/agy --version 2>&1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n1)" \
  && if [ "$installed_agy_version" != "$AGY_EXPECTED_VERSION" ]; then \
-      echo "ERROR: agy installer served version '${installed_agy_version:-<unparseable>}', but the native harness is pinned to '$AGY_EXPECTED_VERSION'." >&2; \
-      echo "       The bootstrapper has no version flag (always latest). Re-verify the harness against the new agy, then bump AGY_EXPECTED_VERSION." >&2; \
-      exit 1; \
-    fi \
- && echo "agy ${AGY_EXPECTED_VERSION} pinned and verified"
+      echo "WARNING: agy installer served version '${installed_agy_version:-<unparseable>}', expected pin '$AGY_EXPECTED_VERSION'." >&2; \
+      echo "         liteai-9a fork: the antigravity-native harness is NOT used by this platform (we run claude-native), so agy version drift is a non-fatal WARNING here instead of a hard build failure — upstream's always-latest bootstrapper would otherwise break every host rebuild whenever antigravity ships a release. If antigravity is ever adopted here, re-verify the coupled behavior and bump AGY_EXPECTED_VERSION." >&2; \
+    else \
+      echo "agy ${AGY_EXPECTED_VERSION} pinned and verified"; \
+    fi
 
 # Preserve /build/ — the venv's editable install .pth files reference
 # /build/omnigent and /build/sdks/* by absolute path. Copying these to
