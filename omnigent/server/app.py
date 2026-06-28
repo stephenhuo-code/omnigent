@@ -1759,6 +1759,47 @@ def create_app(
             )
         return {"user_id": user_id}
 
+    def _resolve_managed_runner_owner(runner_id: str) -> str | None:
+        """Resolve the owner of a SERVER-MANAGED runner from its id.
+
+        The runner-tunnel auth path for managed sandboxes (the analog of
+        ``host_tunnel``'s ``resolve_launch_token``). A managed sandbox
+        carries only the server-issued binding token, no user identity,
+        so when the handshake yields no authenticated owner the route
+        falls back to this lookup. We trace runner -> session ->
+        managed host -> owner: the server itself generated the binding
+        token, derived ``runner_id`` from it, and wrote that id into the
+        session row, so a runner_id that matches an existing session
+        bound to a *managed* host is proof of server issuance.
+
+        Shared by the WS tunnel router (T3.5) and the sessions router's
+        REST-callback auth fallback (T3.6); defined here, ahead of both
+        ``include_router`` calls, so each can inject it.
+
+        Fails closed (returns ``None``) unless the runner_id resolves to
+        a live session whose host is server-managed
+        (``sandbox_provider is not None``) — never authenticates an
+        external (user-connected) host's runner, which must present a
+        real identity.
+
+        :param runner_id: Token-bound runner id from the handshake, e.g.
+            ``"runner_token_a1b2c3d4..."``.
+        :returns: The managed session owner, e.g. ``"alice@example.com"``,
+            or ``None`` when the runner is not a known managed runner.
+        """
+        if host_store is None:
+            return None
+        convs = conversation_store.list_conversations_by_runner_id(runner_id)
+        for conv in convs:
+            if conv.host_id is None:
+                continue
+            host = host_store.get_host(conv.host_id)
+            # sandbox_provider is non-None ONLY for server-managed hosts;
+            # external hosts must still authenticate with a real identity.
+            if host is not None and host.sandbox_provider is not None:
+                return host.owner
+        return None
+
     app.include_router(
         create_sessions_router(
             conversation_store,
@@ -1784,6 +1825,12 @@ def create_app(
             # (host.runner_exited) as last_task_error so a reload still
             # renders the error banner after the live push is gone.
             runner_exit_reports=runner_exit_reports,
+            # Same managed-runner owner lookup the WS tunnel router gets
+            # (T3.5): lets a managed runner's identity-less REST callbacks,
+            # which carry only the server-issued binding token as
+            # ``Authorization: Bearer``, authenticate as their session's
+            # owner under multi-user auth (T3.6).
+            managed_owner_lookup=_resolve_managed_runner_owner,
         ),
         prefix="/v1",
         tags=["sessions"],
@@ -2014,43 +2061,6 @@ def create_app(
                 routed.client,
                 conversation_store,
             )
-
-    def _resolve_managed_runner_owner(runner_id: str) -> str | None:
-        """Resolve the owner of a SERVER-MANAGED runner from its id.
-
-        The runner-tunnel auth path for managed sandboxes (the analog of
-        ``host_tunnel``'s ``resolve_launch_token``). A managed sandbox
-        carries only the server-issued binding token, no user identity,
-        so when the handshake yields no authenticated owner the route
-        falls back to this lookup. We trace runner -> session ->
-        managed host -> owner: the server itself generated the binding
-        token, derived ``runner_id`` from it, and wrote that id into the
-        session row, so a runner_id that matches an existing session
-        bound to a *managed* host is proof of server issuance.
-
-        Fails closed (returns ``None``) unless the runner_id resolves to
-        a live session whose host is server-managed
-        (``sandbox_provider is not None``) — never authenticates an
-        external (user-connected) host's runner, which must present a
-        real identity.
-
-        :param runner_id: Token-bound runner id from the handshake, e.g.
-            ``"runner_token_a1b2c3d4..."``.
-        :returns: The managed session owner, e.g. ``"alice@example.com"``,
-            or ``None`` when the runner is not a known managed runner.
-        """
-        if host_store is None:
-            return None
-        convs = conversation_store.list_conversations_by_runner_id(runner_id)
-        for conv in convs:
-            if conv.host_id is None:
-                continue
-            host = host_store.get_host(conv.host_id)
-            # sandbox_provider is non-None ONLY for server-managed hosts;
-            # external hosts must still authenticate with a real identity.
-            if host is not None and host.sandbox_provider is not None:
-                return host.owner
-        return None
 
     # WS tunnel endpoint for runners (RUNNER.md §2-3).
     app.include_router(

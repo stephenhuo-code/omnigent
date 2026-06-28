@@ -165,9 +165,11 @@ def test_make_auth_token_factory_returns_none_without_databricks_creds(
         """Stand in for _resolve_databricks_auth with no credentials."""
         raise DatabricksAuthError("no Databricks credentials configured")
 
-    # No stored OIDC token and SDK resolution fails → factory is None, so the
-    # runner connects to a local unauthenticated server without a bearer.
+    # No stored OIDC token, SDK resolution fails, AND no managed-sandbox
+    # binding token → factory is None, so the runner connects to a local
+    # unauthenticated server without a bearer.
     monkeypatch.delenv("RUNNER_SERVER_URL", raising=False)  # skip OIDC branch
+    monkeypatch.delenv("OMNIGENT_RUNNER_TUNNEL_BINDING_TOKEN", raising=False)
     monkeypatch.setattr(
         "omnigent.inner.databricks_executor._resolve_databricks_auth",
         _no_creds,
@@ -521,6 +523,52 @@ def test_runner_tunnel_binding_token_from_env_strips_value(
     monkeypatch.setenv("OMNIGENT_RUNNER_TUNNEL_BINDING_TOKEN", " bind-token ")
 
     assert _runner_tunnel_binding_token_from_env() == "bind-token"
+
+
+def test_make_auth_token_factory_falls_back_to_binding_token(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """No OIDC/Databricks creds but a binding token => factory yields it.
+
+    A server-managed sandbox (managed docker / non-Databricks deploy) has
+    no OIDC or Databricks credential, only its per-run tunnel binding
+    token. ``_make_auth_token_factory`` must fall back to that token as a
+    last resort so EVERY runner auth consumer — ``server_client``, each
+    ``_runner_auth``, and the native transcript/cost forwarders — sends
+    ``Authorization: Bearer {binding_token}``; the server derives the
+    managed session's owner from it (T3.5 WS + T3.6 REST auth). Without
+    this, the forwarder that streams the agent's reply 401s.
+
+    :param monkeypatch: Pytest environment patch fixture.
+    :returns: None.
+    """
+    from omnigent.inner.databricks_executor import DatabricksAuthError
+
+    def _no_creds(profile: str | None = None) -> tuple[Any, str]:
+        """Stand in for _resolve_databricks_auth with no credentials."""
+        raise DatabricksAuthError("no Databricks credentials configured")
+
+    # No OIDC (no stored token) and no Databricks creds, but a managed
+    # binding token is present in the environment.
+    monkeypatch.setattr("omnigent.cli_auth.load_token", lambda _url: None)
+    monkeypatch.setattr(
+        "omnigent.inner.databricks_executor._resolve_databricks_auth",
+        _no_creds,
+    )
+    monkeypatch.setenv("OMNIGENT_RUNNER_TUNNEL_BINDING_TOKEN", "bind-tok-xyz")
+
+    factory = _make_auth_token_factory(server_url="https://ex.test")
+    assert factory is not None, (
+        "factory must fall back to the binding token when it is the only credential"
+    )
+    assert factory() == "bind-tok-xyz"
+
+    # And it drives _RunnerDatabricksAuth to attach the Bearer header that
+    # the server's managed-runner auth fallback consumes.
+    auth = _RunnerDatabricksAuth(factory)
+    request = httpx.Request("GET", "http://server/v1/sessions/s1")
+    sent = next(auth.auth_flow(request))
+    assert sent.headers["Authorization"] == "Bearer bind-tok-xyz"
 
 
 def test_runner_parent_pid_from_env_returns_none_without_pid(

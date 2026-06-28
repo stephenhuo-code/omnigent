@@ -174,16 +174,22 @@ from omnigent.server.routes._auth_helpers import (
     get_session_owner_id as _get_session_owner_id,
 )
 from omnigent.server.routes._auth_helpers import (
-    get_user_id as _get_user_id,
+    # The patchable identity seam: the sessions router defines a
+    # factory-local ``_get_user_id`` wrapper (T3.6) that adds the managed
+    # binding-token fallback and delegates back to this module-level name
+    # via ``globals()`` (so tests monkeypatching ``sessions._get_user_id``
+    # still flow through). The local wrapper's redefinition of this name
+    # is deliberate (the local def carries an F811 suppression). F401 is
+    # silenced here because the only static reference is shadowed by that
+    # local def; the real use is the runtime ``globals()`` lookup, which
+    # ruff's static analysis cannot see.
+    get_user_id as _get_user_id,  # noqa: F401
 )
 from omnigent.server.routes._auth_helpers import (
     require_access as _require_access,
 )
 from omnigent.server.routes._auth_helpers import (
     require_access_and_level as _require_access_and_level,
-)
-from omnigent.server.routes._auth_helpers import (
-    require_user as _require_user,
 )
 from omnigent.server.routes._codex_elicitation import parse_codex_elicitation_request
 from omnigent.server.routes._content_type import (
@@ -12949,6 +12955,7 @@ def create_sessions_router(
     comment_store: CommentStore | None = None,
     runner_tunnel_tokens: frozenset[str] | None = None,
     runner_exit_reports: RunnerExitReports | None = None,
+    managed_owner_lookup: Callable[[str], str | None] | None = None,
 ) -> APIRouter:
     """
     Factory that builds the sessions router.
@@ -13004,10 +13011,111 @@ def create_sessions_router(
         labels on ``PATCH /v1/sessions/{id}``. ``None`` when the
         server has no allow-list (token-bound runner ids are then the
         only accepted proof).
+    :param managed_owner_lookup: Synchronous resolver mapping a
+        token-bound ``runner_id`` to the owner of the SERVER-MANAGED
+        session it backs, or ``None`` for unknown/external runners (the
+        server's ``_resolve_managed_runner_owner``). Lets a managed
+        runner's identity-less REST callbacks — which carry only the
+        server-issued binding token as ``Authorization: Bearer`` — fall
+        back to their owner's identity when normal auth yields nothing.
+        Mirrors the WS-tunnel router's ``managed_owner_lookup`` (T3.5).
+        ``None`` disables the fallback (e.g. focused tests / single-user
+        servers), leaving the normal 401 behavior intact.
     :returns: A configured :class:`APIRouter` exposing the
         ``/sessions`` endpoints.
     """
     router = APIRouter()
+
+    # ── Managed-runner REST-callback auth fallback (T3.6) ─────────
+    #
+    # A server-managed runner runs in a sandbox container with no user
+    # identity (no auth cookie / X-Forwarded-Email). Its REST callbacks
+    # to these session routes carry only the server-issued binding token
+    # as ``Authorization: Bearer``. Header/cookie auth ignores that
+    # bearer, so ``get_user_id`` returns None and every callback 401s —
+    # the native terminal can never bootstrap. We shadow the module-level
+    # ``_get_user_id`` / ``_require_user`` here (in the factory scope, so
+    # every route closure below picks these up) with the SAME fallback
+    # the WS tunnel uses (T3.5): when normal identity is absent, derive
+    # the managed session's owner from the binding token. The fallback
+    # NEVER overrides a present identity, and still rejects callers with
+    # neither a valid managed token nor an identity header.
+
+    def _binding_token_owner(request: Request) -> str | None:
+        """Resolve a managed runner's owner from its ``Bearer`` token.
+
+        :param request: Incoming request; read-only.
+        :returns: The managed session owner derived from the request's
+            binding token, or ``None`` when there is no bearer token, no
+            owner-lookup resolver, or the token does not resolve to a
+            known server-managed session (fails closed).
+        """
+        if managed_owner_lookup is None:
+            return None
+        authorization = request.headers.get("authorization", "")
+        scheme, _, raw = authorization.partition(" ")
+        if scheme.lower() != "bearer":
+            return None
+        token = raw.strip()
+        if not token:
+            return None
+        try:
+            runner_id = token_bound_runner_id(token)
+        except RuntimeError:
+            # Empty/blank token — token_bound_runner_id refuses it.
+            return None
+        return managed_owner_lookup(runner_id)
+
+    def _get_user_id(  # noqa: F811
+        request: Request,
+        auth_provider: AuthProvider | None,
+    ) -> str | None:
+        """Extract identity, falling back to managed binding-token owner.
+
+        Tries normal identity first (header / cookie). Only when that is
+        absent AND an auth provider is configured do we consult the
+        binding-token fallback, so a present identity is never overridden
+        and the single-user / no-auth path is untouched.
+
+        :param request: Incoming request.
+        :param auth_provider: The configured auth provider, or ``None``.
+        :returns: The authenticated user id, the managed runner's owner,
+            or ``None`` when neither resolves.
+        """
+        # Delegate to the MODULE-level ``_get_user_id`` via ``globals()``
+        # rather than the lexically-shadowed local name: tests monkeypatch
+        # ``sessions._get_user_id`` to inject identities, and reading it
+        # dynamically here keeps that established seam working while still
+        # layering the binding-token fallback on top of whatever it returns.
+        base_get_user_id: Callable[[Request, AuthProvider | None], str | None] = (
+            globals()["_get_user_id"]
+        )
+        uid = base_get_user_id(request, auth_provider)
+        if uid is not None or auth_provider is None:
+            return uid
+        return _binding_token_owner(request)
+
+    def _require_user(
+        request: Request,
+        auth_provider: AuthProvider | None,
+    ) -> str | None:
+        """Like :func:`require_user` but honoring the token fallback.
+
+        :param request: Incoming request.
+        :param auth_provider: The configured auth provider, or ``None``.
+        :returns: The resolved user id, or ``None`` when auth is disabled.
+        :raises OmnigentError: 401 when auth is enabled and no identity
+            (normal or managed-token-derived) is present.
+        """
+        if auth_provider is None:
+            return None
+        uid = _get_user_id(request, auth_provider)
+        if uid is None:
+            raise OmnigentError(
+                "Authentication required",
+                code=ErrorCode.UNAUTHORIZED,
+            )
+        return uid
 
     # ── POST /sessions ───────────────────────────────────────────
 

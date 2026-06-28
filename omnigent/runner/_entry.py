@@ -348,8 +348,9 @@ def _make_auth_token_factory(
     def _factory() -> str | None:
         """Return a fresh auth token.
 
-        Checks the stored OIDC token first (from ``omnigent login``),
-        then falls back to the reused Databricks SDK auth.
+        Resolution order: stored OIDC token (from ``omnigent login``),
+        then the reused Databricks SDK auth, then — as a last resort —
+        the server-managed sandbox's tunnel binding token.
 
         :returns: Bearer token string, or ``None`` if no credentials
             are configured.
@@ -361,7 +362,22 @@ def _make_auth_token_factory(
             oidc_token = load_token(resolved_server_url)
             if oidc_token:
                 return oidc_token
-        return _sdk_token()
+        sdk_token = _sdk_token()
+        if sdk_token is not None:
+            return sdk_token
+        # Last resort: the managed-sandbox tunnel binding token. A
+        # server-managed runner (managed docker / non-Databricks deploy)
+        # has no OIDC or Databricks credential; its per-run binding token
+        # authenticates EVERY server-bound call — the REST callbacks AND
+        # the native-forwarder / cost posts AND the tunnel WS — because the
+        # server derives the managed session's owner from it (the WS-tunnel
+        # T3.5 + REST-callback T3.6 managed-token auth). Centralizing the
+        # fallback HERE (not at a single client) is what makes ALL of the
+        # runner's auth consumers — ``server_client``, every
+        # ``_runner_auth``, and the transcript/cost forwarders — carry it;
+        # otherwise the forwarder that streams the agent's reply 401s and
+        # no output ever reaches the server.
+        return _runner_tunnel_binding_token_from_env()
 
     # Probe once to check if credentials are available.
     try:
@@ -695,7 +711,11 @@ def create_app(
     from omnigent.runner.mcp_manager import RunnerMcpManager
 
     # Reuse the caller's factory when given (shares one resolved SDK auth +
-    # token cache); otherwise build our own.
+    # token cache); otherwise build our own. ``_make_auth_token_factory``
+    # already falls back to the managed-sandbox tunnel binding token when no
+    # OIDC/Databricks credential exists (managed docker / non-Databricks
+    # deploy), so server_client AND every other consumer of the factory
+    # carry the binding token uniformly — see its resolution order.
     if auth_token_factory is None:
         auth_token_factory = _make_auth_token_factory()
     server_client = httpx.AsyncClient(
