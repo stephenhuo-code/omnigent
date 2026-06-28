@@ -70,6 +70,10 @@ _LAUNCHERS: dict[str, str] = {
     # On-demand Kubernetes runner Pod via the official kubernetes client (the
     # `omnigent[kubernetes]` extra), imported lazily like modal/daytona.
     "kubernetes": "omnigent.onboarding.sandboxes.kubernetes:KubernetesSandboxLauncher",
+    # Plain Docker daemon (no microVM / cloud SaaS): a host container started on
+    # demand over the local Docker socket, driven via the `docker` CLI. Needs
+    # no optional SDK — just a `docker` client on PATH.
+    "docker": "omnigent.onboarding.sandboxes.docker:DockerSandboxLauncher",
 }
 
 

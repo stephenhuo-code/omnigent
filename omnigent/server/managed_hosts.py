@@ -140,10 +140,11 @@ SUPPORTED_SANDBOX_PROVIDERS: frozenset[str] = frozenset(
         "e2b",
         "openshell",
         "kubernetes",
+        "docker",
     }
 )
 PROVIDERS_WITH_MANAGED_LAUNCH: frozenset[str] = frozenset(
-    {"modal", "daytona", "boxlite", "cwsandbox", "islo", "e2b", "openshell", "kubernetes"}
+    {"modal", "daytona", "boxlite", "cwsandbox", "islo", "e2b", "openshell", "kubernetes", "docker"}
 )
 
 # How long a managed launch waits for the sandboxed host to register
@@ -197,6 +198,14 @@ OPENSHELL_MANAGED_TOKEN_TTL_S = 7 * 24 * 3600
 # reconnects while still expiring tokens of Pods nobody deleted. A relaunch
 # mints a fresh token (and the per-Pod token Secret is replaced).
 KUBERNETES_MANAGED_TOKEN_TTL_S = 7 * 24 * 3600
+
+# Launch-token lifetime for the YAML docker path. Plain-Docker host containers
+# have no platform lifetime cap (they run until removed by managed-session
+# teardown), so the bound is policy, not platform: the same 7-day window as
+# Daytona/Kubernetes keeps a long-lived host re-authenticating across tunnel
+# reconnects while still expiring tokens of containers nobody removed. A
+# relaunch mints a fresh token.
+DOCKER_MANAGED_TOKEN_TTL_S = 7 * 24 * 3600
 
 # The cwsandbox launch-token TTL is NOT a constant: CW Sandbox's lifetime is
 # operator-overridable (OMNIGENT_CWSANDBOX_MAX_LIFETIME_S), so the TTL is
@@ -708,6 +717,13 @@ def parse_sandbox_config(raw: object) -> ManagedSandboxConfig | None:
             resources=_parse_kubernetes_resources(raw),
         )
         token_ttl_s = KUBERNETES_MANAGED_TOKEN_TTL_S
+    elif provider == "docker":
+        launcher_factory = _docker_launcher_factory(
+            image=_parse_provider_image(raw, "docker"),
+            network=_parse_provider_string(raw, "docker", "network"),
+            env=_parse_provider_env(raw, "docker"),
+        )
+        token_ttl_s = DOCKER_MANAGED_TOKEN_TTL_S
     else:
         launcher_factory = _unsupported_launcher_factory(provider)
         # Never consulted (the factory rejects before any token is
@@ -1683,6 +1699,36 @@ def _kubernetes_launcher_factory(
             in_cluster=in_cluster,
             resources=resources,
         )
+
+    return _build
+
+
+def _docker_launcher_factory(
+    *,
+    image: str | None,
+    network: str | None,
+    env: list[str] | None,
+) -> Callable[[], SandboxLauncher]:
+    """
+    Build the launcher factory for the YAML ``provider: docker`` path.
+
+    :param image: Host image reference to run, e.g.
+        ``"docker.io/me/omnigent-host:latest"``, or ``None`` to resolve the
+        launcher's env-var override / dev default.
+    :param network: Docker network host containers attach to so they can reach
+        the server (the compose network, or ``"host"``), or ``None`` for the
+        launcher's env-var override / default.
+    :param env: Names of server-process environment variables (harness LLM
+        credentials, gateway URLs, ``GIT_TOKEN``) injected into every container
+        as literal env, e.g. ``["OPENAI_API_KEY", "GIT_TOKEN"]``, or ``None``.
+    :returns: A factory producing parameterized Docker launchers.
+    """
+
+    def _build() -> SandboxLauncher:
+        """Construct the Docker launcher (no optional SDK — the docker CLI)."""
+        from omnigent.onboarding.sandboxes.docker import DockerSandboxLauncher
+
+        return DockerSandboxLauncher(image=image, network=network, env=env)
 
     return _build
 

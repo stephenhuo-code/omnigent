@@ -317,11 +317,17 @@ ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PATH="/opt/venv/bin:${PATH}"
 
-# curl + ca-certificates only — for the HEALTHCHECK and for outbound
-# HTTPS to LLM gateways / external services.
+# curl + ca-certificates for HEALTHCHECK / outbound HTTPS.
+# [lite-ai] docker CLI(仅客户端,arch 自适配):DockerSandboxLauncher 经挂载的
+# /var/run/docker.sock 用 `docker` 命令在自托管 docker 上 provision managed host 沙箱。
 RUN apt-get update \
  && apt-get install -y --no-install-recommends curl ca-certificates \
- && rm -rf /var/lib/apt/lists/*
+ && rm -rf /var/lib/apt/lists/* \
+ && DOCKER_ARCH="$(uname -m)" \
+ && curl -fsSL "https://download.docker.com/linux/static/stable/${DOCKER_ARCH}/docker-27.3.1.tgz" -o /tmp/docker.tgz \
+ && tar -xzf /tmp/docker.tgz -C /usr/local/bin --strip-components=1 docker/docker \
+ && rm /tmp/docker.tgz \
+ && docker --version
 
 # Preserve /build/ in the runtime stage — the venv's editable install
 # .pth files reference /build/omnigent and /build/sdks/* by absolute
