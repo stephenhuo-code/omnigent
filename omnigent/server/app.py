@@ -2015,6 +2015,43 @@ def create_app(
                 conversation_store,
             )
 
+    def _resolve_managed_runner_owner(runner_id: str) -> str | None:
+        """Resolve the owner of a SERVER-MANAGED runner from its id.
+
+        The runner-tunnel auth path for managed sandboxes (the analog of
+        ``host_tunnel``'s ``resolve_launch_token``). A managed sandbox
+        carries only the server-issued binding token, no user identity,
+        so when the handshake yields no authenticated owner the route
+        falls back to this lookup. We trace runner -> session ->
+        managed host -> owner: the server itself generated the binding
+        token, derived ``runner_id`` from it, and wrote that id into the
+        session row, so a runner_id that matches an existing session
+        bound to a *managed* host is proof of server issuance.
+
+        Fails closed (returns ``None``) unless the runner_id resolves to
+        a live session whose host is server-managed
+        (``sandbox_provider is not None``) — never authenticates an
+        external (user-connected) host's runner, which must present a
+        real identity.
+
+        :param runner_id: Token-bound runner id from the handshake, e.g.
+            ``"runner_token_a1b2c3d4..."``.
+        :returns: The managed session owner, e.g. ``"alice@example.com"``,
+            or ``None`` when the runner is not a known managed runner.
+        """
+        if host_store is None:
+            return None
+        convs = conversation_store.list_conversations_by_runner_id(runner_id)
+        for conv in convs:
+            if conv.host_id is None:
+                continue
+            host = host_store.get_host(conv.host_id)
+            # sandbox_provider is non-None ONLY for server-managed hosts;
+            # external hosts must still authenticate with a real identity.
+            if host is not None and host.sandbox_provider is not None:
+                return host.owner
+        return None
+
     # WS tunnel endpoint for runners (RUNNER.md §2-3).
     app.include_router(
         create_runner_tunnel_router(
@@ -2023,6 +2060,7 @@ def create_app(
             on_runner_disconnect=_on_runner_disconnect,
             on_runner_connect=_on_runner_connect,
             auth_provider=auth_provider,
+            managed_owner_lookup=_resolve_managed_runner_owner,
             runner_exit_reports=runner_exit_reports,
         ),
         prefix="/v1",

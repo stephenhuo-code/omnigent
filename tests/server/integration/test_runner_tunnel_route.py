@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass
 from functools import partial
 
@@ -121,6 +121,7 @@ def _tunnel_route_app(
     *,
     allowed_tunnel_tokens: frozenset[str] | None = None,
     auth_provider: AuthProvider | None = None,
+    managed_owner_lookup: Callable[[str], str | None] | None = None,
 ) -> TunnelRouteApp:
     """Create a minimal app containing only the runner tunnel route.
 
@@ -129,6 +130,10 @@ def _tunnel_route_app(
     :param auth_provider: Optional auth provider wired into the route.
         ``None`` keeps the no-auth single-user posture; a provider
         activates owner recording and the fail-closed gate.
+    :param managed_owner_lookup: Optional managed-runner owner resolver
+        passed to the route, e.g. ``{rid: "alice@example.com"}.get``.
+        Models the production ``runner_id -> managed session -> owner``
+        derivation without standing up the real stores.
     :returns: The FastAPI app and registry owned by its route.
     """
     registry = TunnelRegistry()
@@ -139,6 +144,7 @@ def _tunnel_route_app(
             registry,
             allowed_tunnel_tokens=allowed_tunnel_tokens,
             auth_provider=auth_provider,
+            managed_owner_lookup=managed_owner_lookup,
         ),
         prefix="/v1",
     )
@@ -878,6 +884,154 @@ async def test_ws_tunnel_loopback_unauthenticated_registers_as_local() -> None:
         # Loopback + no credential → reserved local identity, so
         # single-user ownership checks remain coherent.
         assert route_app.registry.runner_owner(_RUNNER_ID) == RESERVED_USER_LOCAL
+    finally:
+        await communicator.send_input({"type": "websocket.disconnect", "code": 1000})
+        with contextlib.suppress(asyncio.TimeoutError):
+            await communicator.wait(timeout=1.0)
+
+
+# ── managed-sandbox runner: identity-less, binding-token auth ──
+#
+# A server-managed sandbox runs as a container/Pod with no user
+# credentials. It dials the runner tunnel carrying only the server-issued
+# binding token, so the identity-based gate above resolves owner=None and
+# would reject it with 4004 — even though the server itself launched it.
+# The managed_owner_lookup bypass mirrors host_tunnel's managed-token
+# trust: a runner_id that resolves to an existing managed session is proof
+# of server issuance, so the owner is derived server-side. These tests
+# drive the REAL WS route with auth enabled and no token allow-list (the
+# deployed posture).
+
+
+async def test_ws_tunnel_managed_runner_authenticates_without_identity() -> None:
+    """A managed runner authenticates via the owner-lookup bypass.
+
+    With auth enabled, no allow-list, and NO identity header, a managed
+    sandbox presents only its binding token (which derives the path
+    runner id). The route resolves the owner from the managed-session
+    lookup instead of rejecting — the runner registers under the derived
+    owner, and the registry records it (not None, not 4004).
+
+    Reverting the fix turns this red: the handshake is refused with 4004
+    ``unauthenticated`` before ``accept()`` and nothing registers.
+
+    :returns: None.
+    """
+    token = "server-issued-managed-binding-token"
+    runner_id = token_bound_runner_id(token)
+    # Models the production runner_id -> managed session -> owner lookup:
+    # only THIS server-launched runner_id resolves to an owner.
+    route_app = _tunnel_route_app(
+        auth_provider=_CredentialHeaderAuthProvider(),
+        managed_owner_lookup={runner_id: "alice@example.com"}.get,
+    )
+
+    communicator = await _connect_route(
+        route_app.app,
+        f"/v1/runners/{runner_id}/tunnel",
+        headers=[
+            (RUNNER_TUNNEL_TOKEN_HEADER.lower().encode("ascii"), token.encode("ascii")),
+            # Deliberately NO identity header: the sandbox has no cookie /
+            # Bearer, exactly the managed dial-back case.
+        ],
+        client_host="203.0.113.7",
+    )
+
+    await _send_hello(communicator, route_app.registry, runner_id=runner_id)
+    try:
+        assert route_app.registry.online_runner_ids() == [runner_id]
+        # Owner derived server-side from the managed session, so the
+        # owner-scoped binding/listing checks treat it as alice's runner.
+        assert route_app.registry.runner_owner(runner_id) == "alice@example.com"
+    finally:
+        await communicator.send_input({"type": "websocket.disconnect", "code": 1000})
+        with contextlib.suppress(asyncio.TimeoutError):
+            await communicator.wait(timeout=1.0)
+
+
+async def test_ws_tunnel_unknown_runner_still_rejected_with_managed_lookup() -> None:
+    """An unknown runner is still rejected even with the lookup wired.
+
+    The managed bypass must not weaken auth for non-managed peers: an
+    attacker-chosen token derives a valid path runner id and clears the
+    token-binding gate, but that id does NOT resolve in the
+    managed-session lookup. With no identity header, the handshake must
+    still be refused with 4004 before ``accept()`` — nothing registers.
+
+    :returns: None.
+    """
+    legit_token = "server-issued-managed-binding-token"
+    legit_runner_id = token_bound_runner_id(legit_token)
+    route_app = _tunnel_route_app(
+        auth_provider=_CredentialHeaderAuthProvider(),
+        managed_owner_lookup={legit_runner_id: "alice@example.com"}.get,
+    )
+
+    attacker_token = "attacker-chosen-token"
+    attacker_runner_id = token_bound_runner_id(attacker_token)
+    communicator = ApplicationCommunicator(
+        route_app.app,
+        _websocket_scope(
+            f"/v1/runners/{attacker_runner_id}/tunnel",
+            headers=[
+                (
+                    RUNNER_TUNNEL_TOKEN_HEADER.lower().encode("ascii"),
+                    attacker_token.encode("ascii"),
+                )
+            ],
+            client_host="203.0.113.7",
+        ),
+    )
+
+    await communicator.send_input({"type": "websocket.connect"})
+    closed = await communicator.receive_output(timeout=1.0)
+
+    # Refused before accept (no acceptance oracle): the attacker's runner
+    # id isn't a known managed runner, so the bypass declines and the
+    # strict gate fires.
+    assert closed == {
+        "type": "websocket.close",
+        "code": 4004,
+        "reason": "unauthenticated",
+    }
+    assert route_app.registry.online_runner_ids() == []
+
+
+async def test_ws_tunnel_identity_header_wins_over_managed_lookup() -> None:
+    """A real identity is used directly; the managed lookup is not hit.
+
+    When the handshake DOES carry a valid identity, that owner is
+    recorded as-is — the managed-session bypass only runs as a fallback
+    for an identity-less peer, so it must never override (or be needed
+    by) an authenticated runner. The lookup here would have mapped to a
+    different user; the route must ignore it and record the header owner.
+
+    :returns: None.
+    """
+    token = "alice-runner-token"
+    runner_id = token_bound_runner_id(token)
+    # The lookup maps this runner to a DIFFERENT owner; the identity
+    # header must win, proving the bypass is fallback-only.
+    route_app = _tunnel_route_app(
+        auth_provider=_CredentialHeaderAuthProvider(),
+        managed_owner_lookup={runner_id: "mallory@example.com"}.get,
+    )
+
+    communicator = await _connect_route(
+        route_app.app,
+        f"/v1/runners/{runner_id}/tunnel",
+        headers=[
+            (RUNNER_TUNNEL_TOKEN_HEADER.lower().encode("ascii"), token.encode("ascii")),
+            (b"x-test-user", b"alice@example.com"),
+        ],
+        client_host="203.0.113.7",
+    )
+
+    await _send_hello(communicator, route_app.registry, runner_id=runner_id)
+    try:
+        assert route_app.registry.online_runner_ids() == [runner_id]
+        # Authenticated identity wins; the managed lookup's owner is unused.
+        assert route_app.registry.runner_owner(runner_id) == "alice@example.com"
     finally:
         await communicator.send_input({"type": "websocket.disconnect", "code": 1000})
         with contextlib.suppress(asyncio.TimeoutError):

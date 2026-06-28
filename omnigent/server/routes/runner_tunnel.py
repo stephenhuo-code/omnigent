@@ -150,6 +150,7 @@ def create_runner_tunnel_router(
     on_runner_disconnect: Callable[[str], Awaitable[None]] | None = None,
     on_runner_connect: Callable[[str], Awaitable[None]] | None = None,
     auth_provider: AuthProvider | None = None,
+    managed_owner_lookup: Callable[[str], str | None] | None = None,
     runner_exit_reports: RunnerExitReports | None = None,
 ) -> APIRouter:
     """Build the router hosting the ``/runners/{id}/tunnel`` WS endpoint.
@@ -174,6 +175,20 @@ def create_runner_tunnel_router(
         extraction. When set, runner listing is scoped to the
         caller's own runners and tunnel registration records
         the authenticated owner.
+    :param managed_owner_lookup: Optional synchronous resolver that
+        maps a ``runner_id`` to the owner of the SERVER-MANAGED session
+        it was launched for, or ``None`` when the runner is not a known
+        managed runner. Used to authenticate a managed-sandbox runner's
+        tunnel dial-back under multi-user auth: the sandbox carries no
+        user identity (no cookie / Bearer), so without this it would be
+        rejected with ``4004`` like any unauthenticated non-loopback
+        peer. Mirrors how ``host_tunnel`` trusts the managed-host launch
+        token: a binding token whose derived ``runner_id`` matches an
+        existing managed session is proof of server issuance (the server
+        generated the token and wrote that exact id into the session
+        row; forging it would require inverting SHA-256), so the owner
+        can be derived server-side without an identity header. ``None``
+        (single-user / no managed support) keeps the strict gate.
     :param runner_exit_reports: Exit reports recorded by the host
         tunnel (``host.runner_exited``). When set, the status
         endpoint includes the failure cause for a runner that died
@@ -341,11 +356,25 @@ def create_runner_tunnel_router(
             is_loopback=is_loopback,
         )
         if tunnel_owner is None and auth_provider is not None:
-            # Auth is enabled but this non-loopback peer presented no
-            # authenticated identity (no cookie / Bearer). Refuse the
-            # handshake instead of registering an owner-less runner.
-            await ws.close(code=RUNNER_ID_MISMATCH_CLOSE_CODE, reason="unauthenticated")
-            return
+            # No user identity, but this MAY be a server-managed sandbox
+            # runner dialing back: those carry only the server-issued
+            # binding token (already validated by the token-binding gate
+            # above), never a cookie / Bearer. Mirror host_tunnel's
+            # managed-token bypass — derive the owner server-side from the
+            # session this runner was launched for. The lookup only
+            # resolves for a runner_id the server itself wrote into a
+            # managed session row, so an attacker-chosen token (which
+            # derives some other, unbound runner_id) still resolves to
+            # None and is rejected below.
+            if managed_owner_lookup is not None:
+                tunnel_owner = await asyncio.to_thread(managed_owner_lookup, runner_id)
+            if tunnel_owner is None:
+                # Auth is enabled but this non-loopback peer presented no
+                # authenticated identity (no cookie / Bearer) and is not a
+                # known managed runner. Refuse the handshake instead of
+                # registering an owner-less runner.
+                await ws.close(code=RUNNER_ID_MISMATCH_CLOSE_CODE, reason="unauthenticated")
+                return
 
         await ws.accept()
         session: RunnerSession | None = None
