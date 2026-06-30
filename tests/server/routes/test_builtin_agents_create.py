@@ -140,16 +140,103 @@ async def test_post_agent_mcp_header_env_ref_rejected(client: httpx.AsyncClient)
 
 
 async def test_post_agent_executor_auth_env_ref_rejected(client: httpx.AsyncClient) -> None:
-    """An executor.auth api_key with ${SECRET} -> 400, NOT created."""
+    """An executor.auth api_key with ${SECRET} -> 400, NOT created.
+
+    Regression guard for the per-agent-key relaxation: ``executor.auth``
+    is now ALLOWED with literal values, but an env reference in it is
+    still rejected (the runtime load would expand ${SECRET} against the
+    server env — exfil stays closed).
+    """
     bundle = build_agent_bundle(
         name="exfil-auth",
         executor={
             "type": "omnigent",
-            "config": {"harness": "claude-native"},
+            "config": {"harness": "claude-sdk"},
             "auth": {"type": "api_key", "api_key": "${SOME_SECRET}"},
         },
     )
     await _assert_rejected_and_not_created(client, "exfil-auth", bundle)
+
+
+async def test_post_agent_literal_executor_auth_creates(client: httpx.AsyncClient) -> None:
+    """A LITERAL executor.auth api_key + SDK harness -> 200, created + listed.
+
+    The per-agent API key path (ADR-027 §4'): SDK harnesses
+    (claude-sdk/codex/qwen/pi) read ``executor.auth``. A literal key has
+    no ``${}`` ref, so the runtime ``expand_env`` expands nothing → safe.
+    """
+    bundle = build_agent_bundle(
+        name="per-agent-key",
+        description="uses a per-agent api key",
+        executor={
+            "type": "omnigent",
+            "config": {"harness": "claude-sdk"},
+            "auth": {"type": "api_key", "api_key": "sk-test-123"},
+        },
+    )
+
+    resp = await client.post(
+        "/v1/agents",
+        files={"bundle": ("agent.tar.gz", bundle, "application/gzip")},
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["name"] == "per-agent-key"
+    new_id = body["id"]
+    assert new_id
+
+    listed = await client.get("/v1/agents?limit=1000")
+    assert listed.status_code == 200
+    ids = [a["id"] for a in listed.json()["data"]]
+    assert new_id in ids
+
+
+async def test_post_agent_literal_executor_auth_with_base_url_creates(
+    client: httpx.AsyncClient,
+) -> None:
+    """Literal executor.auth with api_key + base_url -> 200 (no env ref)."""
+    bundle = build_agent_bundle(
+        name="per-agent-key-gw",
+        executor={
+            "type": "omnigent",
+            "config": {"harness": "codex"},
+            "auth": {
+                "type": "api_key",
+                "api_key": "sk-test-456",
+                "base_url": "https://gateway.example.com/v1",
+            },
+        },
+    )
+
+    resp = await client.post(
+        "/v1/agents",
+        files={"bundle": ("agent.tar.gz", bundle, "application/gzip")},
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["name"] == "per-agent-key-gw"
+
+
+async def test_post_agent_executor_auth_base_url_env_ref_rejected(
+    client: httpx.AsyncClient,
+) -> None:
+    """An executor.auth base_url with ${SECRET} -> 400, NOT created.
+
+    base_url is the second env-expansion carrier inside executor.auth
+    (parser.py:616); a ref there is rejected too, not only in api_key.
+    """
+    bundle = build_agent_bundle(
+        name="exfil-auth-baseurl",
+        executor={
+            "type": "omnigent",
+            "config": {"harness": "claude-sdk"},
+            "auth": {
+                "type": "api_key",
+                "api_key": "sk-test-789",
+                "base_url": "https://${SOME_SECRET}.example.com/v1",
+            },
+        },
+    )
+    await _assert_rejected_and_not_created(client, "exfil-auth-baseurl", bundle)
 
 
 async def test_post_agent_connection_env_ref_rejected(client: httpx.AsyncClient) -> None:

@@ -27,6 +27,7 @@ writes happen through session creation.
 from __future__ import annotations
 
 import asyncio
+import dataclasses
 import logging
 import re
 from typing import Annotated, Any
@@ -68,14 +69,18 @@ _logger = logging.getLogger(__name__)
 # primitive: a crafted bundle could put ``${SOME_SECRET}`` in an MCP
 # header/url and exfiltrate it to a spec-controlled endpoint.
 #
-# Our agent-library built-ins only ever need: name, description,
-# instructions (system prompt), harness (executor type/harness), and
-# model. They never declare MCP servers, executor auth/credentials, env
-# interpolation, sub-agents, or tools. So we apply a POSITIVE whitelist:
-# an uploaded built-in spec may populate ONLY the safe fields below;
-# anything else (any env-expansion carrier, any tool/secret/sub-agent
-# bearer) is rejected 400. This closes the exfil at zero cost to the
-# feature and is robust against future spec fields (default = reject).
+# Our agent-library built-ins need: name, description, instructions
+# (system prompt), harness (executor type/harness), model, and — for the
+# per-agent API key feature (ADR-027 §4') — a LITERAL ``executor.auth``
+# (and ``executor``/``llm`` connection). So we apply a POSITIVE
+# whitelist: an uploaded built-in spec may populate ONLY the safe fields
+# below; the three connection/auth env-expansion carriers are
+# allowed-if-no-env-ref (a literal ``sk-...`` key has no ``${}`` ref so
+# ``expand_env`` does nothing → safe; a ``${SERVER_SECRET}`` ref is still
+# rejected → exfil stays closed). Every other env-expansion carrier (MCP
+# fields) and every tool/secret/sub-agent bearer or capability flag is
+# rejected 400. This closes the exfil at zero cost to the feature and is
+# robust against future spec fields (default = reject).
 
 # Keys permitted inside ``executor.config`` for an uploaded built-in.
 # ``harness`` selects the harness kind (e.g. ``claude-native``);
@@ -92,8 +97,9 @@ _ENV_REF_RE = re.compile(r"\$\{[^}]+\}|\$[A-Za-z_][A-Za-z0-9_]*")
 
 _SAFE_SPEC_REJECT_MSG = (
     "agent-library uploads may only set name/description/instructions/"
-    "harness/model; MCP servers, executor auth, env references, sub-agents, "
-    "skills, tools, os_env/terminals, guardrails, and capability flags "
+    "harness/model and a LITERAL executor auth/connection (per-agent API "
+    "key); env references (${VAR}/$VAR), MCP servers, sub-agents, skills, "
+    "tools, os_env/terminals, guardrails, and capability flags "
     "(spawn/timers/agent_session_sharing/async) are not allowed"
 )
 
@@ -101,10 +107,14 @@ _SAFE_SPEC_REJECT_MSG = (
 def _contains_env_ref(value: Any) -> bool:
     """Return True if *value* (recursively) carries a ``$VAR``/``${VAR}`` ref.
 
-    Walks strings, mappings, and sequences so a reference nested anywhere
-    inside an allowed field (e.g. ``llm.connection.api_key``) is caught.
+    Walks strings, mappings, sequences, and dataclass instances so a
+    reference nested anywhere inside an allowed field is caught —
+    ``llm.connection``/``executor.connection`` are plain dicts, while
+    ``executor.auth`` is a frozen dataclass (e.g. :class:`ApiKeyAuth`
+    with ``api_key``/``base_url``), so dataclass support is what makes a
+    ``${SECRET}`` in a per-agent key detectable.
 
-    :param value: Any parsed spec value (str, dict, list, scalar).
+    :param value: Any parsed spec value (str, dict, list, dataclass, scalar).
     :returns: ``True`` if an env reference is present anywhere.
     """
     if isinstance(value, str):
@@ -115,6 +125,8 @@ def _contains_env_ref(value: Any) -> bool:
         )
     if isinstance(value, (list, tuple, set)):
         return any(_contains_env_ref(v) for v in value)
+    if dataclasses.is_dataclass(value) and not isinstance(value, type):
+        return any(_contains_env_ref(getattr(value, f.name)) for f in dataclasses.fields(value))
     return False
 
 
@@ -123,10 +135,14 @@ def _assert_safe_builtin_spec(spec: AgentSpec) -> None:
 
     Positive whitelist: an HTTP-uploaded built-in (which the runtime
     loads with ``expand_env=True``) may declare ONLY name, description,
-    instructions, the executor type/harness/model, and a literal (non
-    env-referencing) connection. Any env-expansion carrier or
-    tool/secret/sub-agent bearer is rejected with a clear 400 so the
-    endpoint cannot become a server-secret-exfil primitive.
+    instructions, the executor type/harness/model, and LITERAL (non
+    env-referencing) executor ``auth``/``connection`` and ``llm.connection``
+    — the per-agent API key path (SDK harnesses read ``executor.auth``).
+    A literal ``api_key`` (e.g. ``sk-...``) carries no ``${}`` ref so the
+    runtime ``expand_env`` expands nothing → safe; any ``$VAR``/``${VAR}``
+    ref in those carriers is still rejected (server-secret exfil stays
+    closed). Any other env-expansion carrier (MCP fields) or
+    tool/secret/sub-agent bearer is rejected with a clear 400.
 
     :param spec: The spec parsed from the uploaded bundle (parsed with
         ``expand_env=False``, so env references survive verbatim).
@@ -198,11 +214,13 @@ def _assert_safe_builtin_spec(spec: AgentSpec) -> None:
         _reject("async (async_enabled) declared")
 
     # ── Executor: only type + harness/profile-in-config + model + a
-    # literal connection. Reject auth (an env-expansion carrier) and any
-    # config key beyond harness/profile (notably a nested os_env). ──────
+    # literal auth/connection. ``executor.auth`` is the per-agent API key
+    # carrier (SDK harnesses claude-sdk/codex/qwen/pi read it); it is
+    # ALLOWED with literal values and env-scanned below (an env ref is
+    # still rejected). Reject a ``profile`` (server-side credential
+    # reference, outside the per-agent-key feature) and any config key
+    # beyond harness/profile (notably a nested os_env). ────────────────
     executor = spec.executor
-    if executor.auth is not None:
-        _reject("executor.auth declared")
     if executor.profile is not None:
         _reject("executor.profile declared")
     extra_cfg = set(executor.config) - _ALLOWED_EXECUTOR_CONFIG_KEYS
@@ -210,10 +228,15 @@ def _assert_safe_builtin_spec(spec: AgentSpec) -> None:
         _reject(f"executor.config keys {sorted(extra_cfg)} not allowed")
 
     # ── Env-reference scan over the env-expansion carriers that ARE
-    # permitted to be present (the literal connection). After an
-    # expand_env=False parse, a ``${SECRET}`` left in connection would be
-    # expanded against the server env at the trusted runtime load — so
-    # reject any reference anywhere in the connection blocks. ──────────
+    # permitted to be present (literal executor auth + executor/llm
+    # connection — the complete expandable-and-allowed set; MCP fields,
+    # the only other carriers, are rejected above). After an
+    # expand_env=False parse, a ``${SECRET}`` left in any of these would
+    # be expanded against the server env at the trusted runtime load — so
+    # reject any reference anywhere in them (literal-only). This keeps the
+    # secret-exfil hole closed while permitting a literal per-agent key. ─
+    if _contains_env_ref(executor.auth):
+        _reject("env reference in executor auth")
     if _contains_env_ref(executor.connection):
         _reject("env reference in executor connection")
     if spec.llm is not None and _contains_env_ref(spec.llm.connection):
@@ -224,6 +247,7 @@ def _assert_safe_builtin_spec(spec: AgentSpec) -> None:
         _reject("env reference in llm config")
     if _contains_env_ref(executor.config):
         _reject("env reference in executor config")
+
 
 # Cap an uploaded agent bundle at 10 MiB. A template agent spec is a
 # small config.yaml (+ optional AGENTS.md / skills); this stops an
