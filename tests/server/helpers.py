@@ -624,6 +624,10 @@ def build_agent_bundle(
     terminals: dict[str, Any] | None = None,
     tools: dict[str, Any] | None = None,
     llm: dict[str, Any] | None = None,
+    spawn: bool | None = None,
+    timers: bool | None = None,
+    agent_session_sharing: str | None = None,
+    async_enabled: bool | None = None,
 ) -> bytes:
     """
     Build a minimal valid agent bundle (tar.gz) for testing.
@@ -665,6 +669,18 @@ def build_agent_bundle(
         default ``{"model": name, "connection": {"api_key": "test-key"}}``
         — used to inject an env reference into the connection. ``None``
         uses the default.
+    :param spawn: Optional top-level ``spawn:`` flag (grants
+        ``sys_session_create``). ``None`` omits it (spec default
+        ``False``); used to test the capability-flag whitelist reject.
+    :param timers: Optional top-level ``timers:`` flag (grants the
+        timer builtins). ``None`` omits it (spec default ``False``).
+    :param agent_session_sharing: Optional top-level
+        ``agent_session_sharing:`` value (``"non-public"`` / ``"public"``
+        register ``sys_session_share``). ``None`` omits it (spec default
+        ``"none"``).
+    :param async_enabled: Optional top-level ``async:`` flag. ``None``
+        omits it (spec default ``True``); pass ``False`` to suppress the
+        async-dispatch surface.
     :returns: A gzipped tar archive containing the generated
         ``config.yaml`` plus optional sub-agent and skill files.
     """
@@ -691,6 +707,17 @@ def build_agent_bundle(
         config["terminals"] = terminals
     if tools is not None:
         config["tools"] = tools
+    # Top-level capability/behavior flags (written under their YAML keys
+    # so the parser populates the matching AgentSpec fields). Used by the
+    # capability-flag whitelist reject tests.
+    if spawn is not None:
+        config["spawn"] = spawn
+    if timers is not None:
+        config["timers"] = timers
+    if agent_session_sharing is not None:
+        config["agent_session_sharing"] = agent_session_sharing
+    if async_enabled is not None:
+        config["async"] = async_enabled
     if executor is not None:
         config["executor"] = dict(executor)
         config["executor"].setdefault("config", {}).setdefault("harness", "claude-sdk")

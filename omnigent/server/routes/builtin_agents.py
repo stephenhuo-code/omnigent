@@ -40,7 +40,7 @@ from omnigent.server.auth import AuthProvider, local_single_user_enabled
 from omnigent.server.bundles import validate_agent_bundle
 from omnigent.server.routes._auth_helpers import require_user as _require_user
 from omnigent.server.schemas import AgentObject, MCPServerSummary, PaginatedList, SkillSummary
-from omnigent.spec.types import AgentSpec
+from omnigent.spec.types import AgentSpec, SharePolicy
 from omnigent.stores import AgentStore, ArtifactStore
 
 _logger = logging.getLogger(__name__)
@@ -93,7 +93,8 @@ _ENV_REF_RE = re.compile(r"\$\{[^}]+\}|\$[A-Za-z_][A-Za-z0-9_]*")
 _SAFE_SPEC_REJECT_MSG = (
     "agent-library uploads may only set name/description/instructions/"
     "harness/model; MCP servers, executor auth, env references, sub-agents, "
-    "skills, tools, os_env/terminals, and guardrails are not allowed"
+    "skills, tools, os_env/terminals, guardrails, and capability flags "
+    "(spawn/timers/agent_session_sharing/async) are not allowed"
 )
 
 
@@ -167,6 +168,34 @@ def _assert_safe_builtin_spec(spec: AgentSpec) -> None:
     # the host-skill surface; keep it at the default.
     if spec.skills_filter != "all":
         _reject("skills_filter declared")
+
+    # ── Top-level capability/behavior flags: must stay at their safe
+    # defaults. A library agent only ever needs name/instructions/harness/
+    # model — none of these flags. Each toggles a privileged tool surface
+    # or changes execution behavior, so a non-default value is an
+    # escalation outside the whitelist (a true default-reject gate rejects
+    # any deviation, not only env-expansion carriers):
+    #   - spawn=True            → registers ``sys_session_create`` (launch
+    #     arbitrary agents/bundles) plus session send/close — a capability
+    #     escalation beyond a plain chat agent.
+    #   - timers=True           → registers ``sys_timer_set`` /
+    #     ``sys_timer_cancel`` (durable background firings).
+    #   - agent_session_sharing != NONE → registers ``sys_session_share``,
+    #     which MUTATES access control (can grant ``__public__`` read).
+    #   - async_enabled != True (the parser default) → would change the
+    #     async-dispatch tool surface (``sys_call_async`` / ``sys_read_inbox``
+    #     / ``sys_cancel_async``); the safe library profile is the default.
+    # These are NOT env-expansion carriers (the Critical stays closed via
+    # the scan below); they round out the positive whitelist so the upload
+    # endpoint can only ever produce a plain chat agent.
+    if spec.spawn:
+        _reject("spawn declared")
+    if spec.timers:
+        _reject("timers declared")
+    if spec.agent_session_sharing != SharePolicy.NONE:
+        _reject("agent_session_sharing declared")
+    if not spec.async_enabled:
+        _reject("async (async_enabled) declared")
 
     # ── Executor: only type + harness/profile-in-config + model + a
     # literal connection. Reject auth (an env-expansion carrier) and any

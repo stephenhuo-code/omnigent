@@ -185,6 +185,57 @@ async def test_post_agent_mcp_without_env_ref_still_rejected(
     await _assert_rejected_and_not_created(client, "exfil-mcp-plain", bundle)
 
 
+# ── Capability-flag whitelist guards ──────────────────────────────────
+#
+# Beyond the env-expansion carriers above, the positive whitelist also
+# rejects the top-level capability/behavior flags. These are NOT
+# env-expansion carriers (the Critical is closed independently), but each
+# toggles a privileged tool surface or changes execution behavior — an
+# escalation outside the plain-chat-agent safe set a library upload should
+# ever produce. A true default-reject whitelist rejects any non-default
+# value, so these guard that completeness nit.
+
+
+async def test_post_agent_spawn_flag_rejected(client: httpx.AsyncClient) -> None:
+    """``spawn: true`` (registers sys_session_create) -> 400, NOT created."""
+    bundle = build_agent_bundle(
+        name="cap-spawn",
+        executor={"type": "omnigent", "config": {"harness": "claude-native"}},
+        spawn=True,
+    )
+    await _assert_rejected_and_not_created(client, "cap-spawn", bundle)
+
+
+async def test_post_agent_timers_flag_rejected(client: httpx.AsyncClient) -> None:
+    """``timers: true`` (registers the timer builtins) -> 400, NOT created."""
+    bundle = build_agent_bundle(
+        name="cap-timers",
+        executor={"type": "omnigent", "config": {"harness": "claude-native"}},
+        timers=True,
+    )
+    await _assert_rejected_and_not_created(client, "cap-timers", bundle)
+
+
+async def test_post_agent_session_sharing_flag_rejected(client: httpx.AsyncClient) -> None:
+    """``agent_session_sharing`` (registers sys_session_share) -> 400, NOT created."""
+    bundle = build_agent_bundle(
+        name="cap-sharing",
+        executor={"type": "omnigent", "config": {"harness": "claude-native"}},
+        agent_session_sharing="public",
+    )
+    await _assert_rejected_and_not_created(client, "cap-sharing", bundle)
+
+
+async def test_post_agent_async_flag_rejected(client: httpx.AsyncClient) -> None:
+    """A non-default ``async: false`` changes the tool surface -> 400, NOT created."""
+    bundle = build_agent_bundle(
+        name="cap-async",
+        executor={"type": "omnigent", "config": {"harness": "claude-native"}},
+        async_enabled=False,
+    )
+    await _assert_rejected_and_not_created(client, "cap-async", bundle)
+
+
 async def test_post_agent_safe_bundle_still_creates(client: httpx.AsyncClient) -> None:
     """The safe name/instructions/harness=claude-native bundle still 200s.
 
