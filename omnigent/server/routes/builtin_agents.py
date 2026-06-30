@@ -28,7 +28,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Annotated
+import re
+from typing import Annotated, Any
 
 from fastapi import APIRouter, File, HTTPException, Query, Request, UploadFile
 
@@ -39,9 +40,161 @@ from omnigent.server.auth import AuthProvider, local_single_user_enabled
 from omnigent.server.bundles import validate_agent_bundle
 from omnigent.server.routes._auth_helpers import require_user as _require_user
 from omnigent.server.schemas import AgentObject, MCPServerSummary, PaginatedList, SkillSummary
+from omnigent.spec.types import AgentSpec
 from omnigent.stores import AgentStore, ArtifactStore
 
 _logger = logging.getLogger(__name__)
+
+# ── Safe-spec gate for HTTP-uploaded built-ins ─────────────────────────
+#
+# A built-in agent (``session_id IS NULL``) is the runtime's
+# *trusted/operator-authored* provenance class: its spec is later loaded
+# with ``expand_env=True`` (see ``runtime/agent_cache.load`` and the
+# ``expand_env=(agent.session_id is None)`` call sites in
+# ``server/routes/sessions.py``). With ``expand_env=True`` the parser
+# expands ``${VAR}`` / ``$VAR`` references against the *server process
+# environment* in these carrier fields (the complete set found by
+# grepping ``expand_env_vars`` / ``os.path.expandvars`` in
+# ``spec/parser.py``):
+#
+#   - ``llm.connection``      (parser.py:299 — lifted onto executor.connection)
+#   - ``executor.connection`` (parser.py:548)
+#   - ``executor.auth``       (parser.py:610/616 — api_key, base_url)
+#   - ``mcp_servers[*]``      headers / env / url (parser.py:2211/2218/2355/2424)
+#
+# ``validate_agent_bundle(expand_env=False)`` only protects the
+# *validation-time* parse; the *runtime* load still expands. So an HTTP
+# upload promoted to a built-in is a latent server-secret-exfil
+# primitive: a crafted bundle could put ``${SOME_SECRET}`` in an MCP
+# header/url and exfiltrate it to a spec-controlled endpoint.
+#
+# Our agent-library built-ins only ever need: name, description,
+# instructions (system prompt), harness (executor type/harness), and
+# model. They never declare MCP servers, executor auth/credentials, env
+# interpolation, sub-agents, or tools. So we apply a POSITIVE whitelist:
+# an uploaded built-in spec may populate ONLY the safe fields below;
+# anything else (any env-expansion carrier, any tool/secret/sub-agent
+# bearer) is rejected 400. This closes the exfil at zero cost to the
+# feature and is robust against future spec fields (default = reject).
+
+# Keys permitted inside ``executor.config`` for an uploaded built-in.
+# ``harness`` selects the harness kind (e.g. ``claude-native``);
+# ``profile`` names a server-side credential profile (a *reference*,
+# not a secret value, and not env-expanded). Everything else
+# (notably a nested ``os_env``) is rejected.
+_ALLOWED_EXECUTOR_CONFIG_KEYS: frozenset[str] = frozenset({"harness", "profile"})
+
+# Matches a ``$VAR`` or ``${VAR}`` reference (mirrors the parser's
+# ``_UNRESOLVED_VAR_RE``). Because the gate runs on a spec parsed with
+# ``expand_env=False``, these references survive verbatim and can be
+# detected before the trusted runtime load would expand them.
+_ENV_REF_RE = re.compile(r"\$\{[^}]+\}|\$[A-Za-z_][A-Za-z0-9_]*")
+
+_SAFE_SPEC_REJECT_MSG = (
+    "agent-library uploads may only set name/description/instructions/"
+    "harness/model; MCP servers, executor auth, env references, sub-agents, "
+    "skills, tools, os_env/terminals, and guardrails are not allowed"
+)
+
+
+def _contains_env_ref(value: Any) -> bool:
+    """Return True if *value* (recursively) carries a ``$VAR``/``${VAR}`` ref.
+
+    Walks strings, mappings, and sequences so a reference nested anywhere
+    inside an allowed field (e.g. ``llm.connection.api_key``) is caught.
+
+    :param value: Any parsed spec value (str, dict, list, scalar).
+    :returns: ``True`` if an env reference is present anywhere.
+    """
+    if isinstance(value, str):
+        return _ENV_REF_RE.search(value) is not None
+    if isinstance(value, dict):
+        return any(_contains_env_ref(v) for v in value.values()) or any(
+            _contains_env_ref(k) for k in value
+        )
+    if isinstance(value, (list, tuple, set)):
+        return any(_contains_env_ref(v) for v in value)
+    return False
+
+
+def _assert_safe_builtin_spec(spec: AgentSpec) -> None:
+    """Reject an uploaded built-in spec that exceeds the safe field set.
+
+    Positive whitelist: an HTTP-uploaded built-in (which the runtime
+    loads with ``expand_env=True``) may declare ONLY name, description,
+    instructions, the executor type/harness/model, and a literal (non
+    env-referencing) connection. Any env-expansion carrier or
+    tool/secret/sub-agent bearer is rejected with a clear 400 so the
+    endpoint cannot become a server-secret-exfil primitive.
+
+    :param spec: The spec parsed from the uploaded bundle (parsed with
+        ``expand_env=False``, so env references survive verbatim).
+    :raises OmnigentError: ``INVALID_INPUT`` (HTTP 400) if the spec
+        populates any field outside the safe whitelist or carries any
+        ``$VAR`` / ``${VAR}`` reference.
+    """
+
+    def _reject(detail: str) -> None:
+        raise OmnigentError(
+            f"{_SAFE_SPEC_REJECT_MSG} ({detail})",
+            code=ErrorCode.INVALID_INPUT,
+        )
+
+    # ── Tool / secret / sub-agent bearers: must be absent ──────────────
+    if spec.mcp_servers:
+        _reject("mcp_servers declared")
+    if spec.sub_agents:
+        _reject("sub_agents declared")
+    if spec.skills:
+        _reject("bundled skills declared")
+    if spec.local_tools:
+        _reject("local_tools declared")
+    if spec.guardrails is not None:
+        _reject("guardrails declared")
+    if spec.os_env is not None:
+        _reject("os_env declared")
+    if spec.terminals:
+        _reject("terminals declared")
+    if spec.params:
+        _reject("params declared")
+    # tools.agents grants sub-agent spawning; any non-default tools.agents
+    # or tools.builtins is outside the safe set.
+    if spec.tools.agents:
+        _reject("tools.agents declared")
+    if spec.tools.builtins:
+        _reject("tools.builtins declared")
+    # Non-default skills_filter ("all" is the parser default) would change
+    # the host-skill surface; keep it at the default.
+    if spec.skills_filter != "all":
+        _reject("skills_filter declared")
+
+    # ── Executor: only type + harness/profile-in-config + model + a
+    # literal connection. Reject auth (an env-expansion carrier) and any
+    # config key beyond harness/profile (notably a nested os_env). ──────
+    executor = spec.executor
+    if executor.auth is not None:
+        _reject("executor.auth declared")
+    if executor.profile is not None:
+        _reject("executor.profile declared")
+    extra_cfg = set(executor.config) - _ALLOWED_EXECUTOR_CONFIG_KEYS
+    if extra_cfg:
+        _reject(f"executor.config keys {sorted(extra_cfg)} not allowed")
+
+    # ── Env-reference scan over the env-expansion carriers that ARE
+    # permitted to be present (the literal connection). After an
+    # expand_env=False parse, a ``${SECRET}`` left in connection would be
+    # expanded against the server env at the trusted runtime load — so
+    # reject any reference anywhere in the connection blocks. ──────────
+    if _contains_env_ref(executor.connection):
+        _reject("env reference in executor connection")
+    if spec.llm is not None and _contains_env_ref(spec.llm.connection):
+        _reject("env reference in llm connection")
+    # Defense in depth: also reject an env reference anywhere in the
+    # passthrough kwargs / executor config we let through.
+    if spec.llm is not None and _contains_env_ref(spec.llm.extra):
+        _reject("env reference in llm config")
+    if _contains_env_ref(executor.config):
+        _reject("env reference in executor config")
 
 # Cap an uploaded agent bundle at 10 MiB. A template agent spec is a
 # small config.yaml (+ optional AGENTS.md / skills); this stops an
@@ -260,6 +413,15 @@ def create_builtin_agents_router(
         )
         if spec.name is None:
             raise OmnigentError("spec missing name", code=ErrorCode.INVALID_INPUT)
+
+        # Safe-spec gate: an HTTP-uploaded built-in (session_id IS NULL)
+        # is loaded with expand_env=True at runtime, so any env-expansion
+        # carrier (MCP server env/headers/url, executor auth/connection)
+        # would expand ${VAR} against the server process environment —
+        # a server-secret-exfil primitive. validate_agent_bundle only
+        # parses with expand_env=False (validation-time), NOT the runtime
+        # load, so restrict uploads to the safe field whitelist here.
+        _assert_safe_builtin_spec(spec)
 
         # Reuse the server's own seeding function: content-addressed,
         # idempotent by name (create, or refresh-in-place when the
