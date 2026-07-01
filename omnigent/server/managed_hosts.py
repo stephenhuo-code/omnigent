@@ -237,6 +237,14 @@ MANAGED_LAUNCH_RENDEZVOUS_TIMEOUT_S = MANAGED_HOST_ONLINE_TIMEOUT_S + 120
 # to re-clone the repository into the fresh generation's workspace.
 MANAGED_REPO_LABEL_KEY = "omnigent.sandbox.repo"
 
+# Session label carrying the ENTERPRISE this managed session belongs to (an
+# opaque enterprise alias set by the BFF at create). Threaded to the sandbox
+# launcher so a per-enterprise credential injector (the docker launcher)
+# resolves this enterprise's provider keys from its mounted credential file,
+# giving cross-enterprise credential isolation. Absent for sessions with no
+# enterprise (the launcher then uses the global server env only).
+MANAGED_ENTERPRISE_LABEL_KEY = "enterprise_id"
+
 
 @dataclass
 class ManagedLaunch:
@@ -1733,6 +1741,32 @@ def _docker_launcher_factory(
     return _build
 
 
+def _provision(
+    launcher: SandboxLauncher, host_name: str, enterprise_id: str | None
+) -> str:
+    """
+    Call ``launcher.provision`` threading the enterprise only where used.
+
+    The docker launcher injects per-enterprise credential VALUES and takes an
+    ``enterprise_id`` keyword; every other launcher's ``provision`` takes only
+    the name (they don't do per-enterprise injection). So the enterprise is
+    passed as the keyword ONLY when the launcher's ``provision`` accepts it —
+    keeping the call backward compatible for all other providers without
+    touching their signatures.
+
+    :param launcher: The provider launcher for this launch.
+    :param host_name: The sandbox label (host name).
+    :param enterprise_id: The session's enterprise alias, or ``None``.
+    :returns: The provisioned sandbox id.
+    """
+    import inspect
+
+    params = inspect.signature(launcher.provision).parameters
+    if "enterprise_id" in params:
+        return launcher.provision(host_name, enterprise_id=enterprise_id)
+    return launcher.provision(host_name)
+
+
 async def launch_managed_host(
     *,
     config: ManagedSandboxConfig,
@@ -1740,6 +1774,7 @@ async def launch_managed_host(
     host_store: HostStore,
     repo: RepoWorkspace | None = None,
     on_stage: Callable[[str], None] | None = None,
+    enterprise_id: str | None = None,
 ) -> ManagedHostLaunch:
     """
     Provision a sandbox, start a host in it, and wait until it registers.
@@ -1773,6 +1808,11 @@ async def launch_managed_host(
         worker thread (the sandbox exec steps run via
         ``asyncio.to_thread``), so it must be thread-safe. ``None``
         disables progress reporting.
+    :param enterprise_id: The session's enterprise alias (from its
+        ``enterprise_id`` label), threaded to the launcher so a
+        per-enterprise credential injector (the docker launcher)
+        resolves this enterprise's provider keys. ``None`` for a
+        session without an enterprise (global credentials only).
     :returns: The registered host id + in-sandbox workspace path
         (the cloned repository directory when *repo* is set).
     :raises HTTPException: 400 when the configured provider lacks
@@ -1787,7 +1827,9 @@ async def launch_managed_host(
     host_name = f"managed-{host_id[len('host_') : len('host_') + 8]}"
     try:
         await asyncio.to_thread(launcher.prepare)
-        sandbox_id = await asyncio.to_thread(launcher.provision, host_name)
+        sandbox_id = await asyncio.to_thread(
+            _provision, launcher, host_name, enterprise_id
+        )
     except click.ClickException as exc:
         raise HTTPException(
             status_code=502,
@@ -1814,6 +1856,7 @@ async def relaunch_managed_host(
     host_store: HostStore,
     repo: RepoWorkspace | None = None,
     on_stage: Callable[[str], None] | None = None,
+    enterprise_id: str | None = None,
 ) -> ManagedHostLaunch:
     """
     Provision a NEW sandbox generation for an existing managed host.
@@ -1843,6 +1886,10 @@ async def relaunch_managed_host(
     :param on_stage: Progress observer forwarded to
         :func:`_arm_and_start_host`; see :func:`launch_managed_host`.
         ``None`` disables progress reporting.
+    :param enterprise_id: The session's enterprise alias, threaded to
+        the launcher so the fresh generation re-injects this
+        enterprise's per-enterprise credentials (docker launcher).
+        ``None`` for a session without an enterprise.
     :returns: The (unchanged) host id + fresh in-sandbox workspace.
     :raises HTTPException: 400 when the host's recorded provider no
         longer matches the configured launcher; 502 when
@@ -1863,7 +1910,9 @@ async def relaunch_managed_host(
     await _terminate_sandbox_best_effort(launcher, host)
     try:
         await asyncio.to_thread(launcher.prepare)
-        sandbox_id = await asyncio.to_thread(launcher.provision, host.name)
+        sandbox_id = await asyncio.to_thread(
+            _provision, launcher, host.name, enterprise_id
+        )
     except click.ClickException as exc:
         raise HTTPException(
             status_code=502,

@@ -210,7 +210,7 @@ class SandboxLauncher(ABC):
         """
 
     @abstractmethod
-    def provision(self, name: str) -> str:
+    def provision(self, name: str, *, enterprise_id: str | None = None) -> str:
         """
         Create a new sandbox and return its id.
 
@@ -222,6 +222,12 @@ class SandboxLauncher(ABC):
 
         :param name: Human-readable label for the sandbox, e.g.
             ``"omnigent-host"``.
+        :param enterprise_id: The session's enterprise alias (from the
+            managed-launch), so a provider that injects per-enterprise
+            credentials (the docker launcher) can resolve VALUES for that
+            enterprise. Optional keyword (default ``None``) — providers that
+            don't do per-enterprise injection ignore it, keeping every existing
+            launcher backward compatible.
         :returns: The provider-assigned (or reserved) sandbox id, e.g.
             ``"lovable-wattlebird-1530"``.
         :raises click.ClickException: If provisioning fails.

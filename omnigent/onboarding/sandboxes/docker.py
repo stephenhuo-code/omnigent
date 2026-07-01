@@ -42,7 +42,10 @@ Platform notes that shape this launcher:
 
 from __future__ import annotations
 
+import json
+import logging
 import os
+import re
 import shlex
 import subprocess
 import uuid
@@ -59,6 +62,9 @@ from omnigent.onboarding.sandboxes.base import (
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+
+_logger = logging.getLogger(__name__)
 
 
 # ── Constants ──────────────────────────────────────────
@@ -81,6 +87,28 @@ variables whose values are injected into every host container as literal
 values: the values are read from the server's own environment at provision
 time, so secrets never live in config files. The ``sandbox.docker.env`` config
 takes precedence."""
+
+MODEL_CREDENTIALS_DIR_ENV_VAR: str = "OMNIGENT_MODEL_CREDENTIALS_DIR"
+"""Environment variable naming the directory holding per-enterprise model
+credential files (``<enterprise_id>.json``, each a flat ``{"<ENV_NAME>":
+"<value>"}`` mapping). When set and a session carries an ``enterprise_id``, the
+docker launcher reads that enterprise's file to resolve
+``sandbox.docker.env`` values, falling back to the SERVER's own environment for
+any name absent from the file. Default :data:`_DEFAULT_MODEL_CREDENTIALS_DIR`.
+The file supplies VALUES per enterprise so different enterprises inject their
+own provider keys into their own sandboxes; the SERVER env remains the global
+fallback for enterprises without a file."""
+
+# Where per-enterprise credential files live by default — the mount point the
+# dev/prod compose maps the (gitignored) host credentials dir onto, read-only.
+_DEFAULT_MODEL_CREDENTIALS_DIR: str = "/config/model-credentials"
+
+# An enterprise_id arrives from a session label (untrusted-ish) and selects a
+# FILENAME within the mounted credentials dir. Restrict it to a safe filename
+# token so it can never escape the dir (no "/", no ".."): a bad value is
+# rejected and the launcher falls back to the global server env rather than
+# reading an arbitrary path.
+_ENTERPRISE_ID_RE = re.compile(r"^[a-zA-Z0-9_-]+$")
 
 # Default network. A locally-built dev image with the server on the Docker
 # host's localhost works on the host network; deployments that run the server
@@ -183,19 +211,91 @@ class DockerSandboxLauncher(SandboxLauncher):
         """
         return self._network or os.environ.get(NETWORK_ENV_VAR) or _DEFAULT_NETWORK
 
-    def _resolve_sandbox_env(self) -> dict[str, str]:
+    def _load_enterprise_credentials(self, enterprise_id: str | None) -> dict[str, str]:
+        """
+        Load the per-enterprise credential VALUES for *enterprise_id*.
+
+        Reads ``<OMNIGENT_MODEL_CREDENTIALS_DIR>/<enterprise_id>.json`` — a flat
+        ``{"<ENV_NAME>": "<value>"}`` mapping supplying this enterprise's own
+        provider keys/tokens. Defensive by design: a missing/unreadable/
+        malformed file, or an ``enterprise_id`` that is not a safe filename
+        token, yields an EMPTY mapping so :meth:`_resolve_sandbox_env` simply
+        falls back to the global server env — a per-enterprise credential
+        problem must never crash a provision.
+
+        ``enterprise_id`` comes from a session label (untrusted-ish) and selects
+        a filename within the mounted dir, so it is guarded against path
+        traversal (:data:`_ENTERPRISE_ID_RE`): a value containing ``/`` / ``..``
+        or otherwise not matching is rejected without touching the filesystem.
+
+        :param enterprise_id: The session's enterprise alias, or ``None`` when
+            the session carries no enterprise (→ empty mapping, global only).
+        :returns: Name → value mapping from the enterprise file (empty on any
+            problem or when no enterprise is given). Values are secrets — never
+            logged.
+        """
+        if not enterprise_id:
+            return {}
+        if not _ENTERPRISE_ID_RE.fullmatch(enterprise_id):
+            # Path-traversal / malformed alias: do not read any file, fall back
+            # to global. Log the REJECTION (not any value) so an operator can
+            # see a bad label without leaking a secret.
+            _logger.warning(
+                "ignoring per-enterprise credentials: enterprise_id is not a "
+                "safe filename token (path-traversal guard)"
+            )
+            return {}
+        creds_dir = os.environ.get(MODEL_CREDENTIALS_DIR_ENV_VAR, _DEFAULT_MODEL_CREDENTIALS_DIR)
+        path = os.path.join(creds_dir, f"{enterprise_id}.json")
+        try:
+            with open(path, encoding="utf-8") as handle:
+                data = json.load(handle)
+        except FileNotFoundError:
+            # No per-enterprise file: expected for enterprises that haven't
+            # configured their own credentials — silently fall back to global.
+            return {}
+        except (OSError, ValueError) as exc:
+            # Unreadable / malformed JSON: don't crash the provision, fall back
+            # to global. Log the error TYPE only (never the file contents).
+            _logger.warning(
+                "ignoring per-enterprise credentials for enterprise %r: %s",
+                enterprise_id,
+                type(exc).__name__,
+            )
+            return {}
+        if not isinstance(data, dict):
+            _logger.warning(
+                "ignoring per-enterprise credentials for enterprise %r: "
+                "file is not a JSON object",
+                enterprise_id,
+            )
+            return {}
+        # Keep only string→string entries; skip anything else defensively.
+        return {
+            str(name): value
+            for name, value in data.items()
+            if isinstance(name, str) and isinstance(value, str)
+        }
+
+    def _resolve_sandbox_env(self, enterprise_id: str | None = None) -> dict[str, str]:
         """
         Resolve the literal env vars to inject into created containers.
 
         Explicit constructor names win; otherwise
-        :data:`SANDBOX_ENV_PASSTHROUGH_ENV_VAR` (comma-separated) applies.
-        Values come from the server's own environment — a configured name that
-        is unset there fails loud (silently launching without it would surface
-        much later as an opaque harness auth failure inside the container).
+        :data:`SANDBOX_ENV_PASSTHROUGH_ENV_VAR` (comma-separated) applies. For
+        each name the VALUE is resolved **per enterprise**: the value from
+        *enterprise_id*'s credential file if present, else the SERVER's own
+        environment (global fallback). Names with no value anywhere are simply
+        NOT injected (an absent provider key must not become an empty env var
+        that would mask the fallback), so the config lists every supported
+        provider name and only those actually configured get injected.
 
+        :param enterprise_id: The session's enterprise alias, threaded from the
+            managed launch, or ``None`` for a session with no enterprise (→
+            global env only). Selects the per-enterprise credential file (see
+            :meth:`_load_enterprise_credentials`, which guards against path
+            traversal).
         :returns: Name → value mapping for literal ``-e`` flags.
-        :raises click.ClickException: When a configured name is unset in the
-            server environment.
         """
         if self._env_names is not None:
             names: Sequence[str] = self._env_names
@@ -205,16 +305,16 @@ class DockerSandboxLauncher(SandboxLauncher):
                 for name in os.environ.get(SANDBOX_ENV_PASSTHROUGH_ENV_VAR, "").split(",")
                 if name.strip()
             ]
+        file_values = self._load_enterprise_credentials(enterprise_id)
         resolved: dict[str, str] = {}
         for name in names:
-            value = os.environ.get(name)
+            # File value wins over global; skip names with no value anywhere so
+            # an unconfigured provider isn't injected as an empty env var.
+            value = file_values.get(name)
             if value is None:
-                raise click.ClickException(
-                    f"sandbox env passthrough names '{name}' but it is not set in "
-                    "the server's environment — set it (or remove it from "
-                    f"sandbox.docker.env / {SANDBOX_ENV_PASSTHROUGH_ENV_VAR})."
-                )
-            resolved[name] = value
+                value = os.environ.get(name)
+            if value:
+                resolved[name] = value
         return resolved
 
     def _docker(
@@ -269,7 +369,7 @@ class DockerSandboxLauncher(SandboxLauncher):
         """
         self._docker(["version", "--format", "{{.Server.Version}}"], check=True, timeout=_DOCKER_OP_TIMEOUT_S)
 
-    def provision(self, name: str) -> str:
+    def provision(self, name: str, *, enterprise_id: str | None = None) -> str:
         """
         Start a bare keep-alive host container and return its name as the id.
 
@@ -281,6 +381,11 @@ class DockerSandboxLauncher(SandboxLauncher):
         in the ``docker run`` argv / ``docker inspect`` output.
 
         :param name: Human-readable label, e.g. ``"managed-a1b2c3d4"``.
+        :param enterprise_id: The session's enterprise alias, threaded from the
+            managed launch, so credential VALUES are resolved from that
+            enterprise's file (see :meth:`_resolve_sandbox_env`). ``None`` (the
+            default) resolves from the global server env only — backward
+            compatible for callers that don't thread an enterprise.
         :returns: The container name (also its ``--name``), used as sandbox id.
         :raises click.ClickException: When the daemon is unreachable or the
             ``docker run`` fails (e.g. image pull error).
@@ -288,7 +393,7 @@ class DockerSandboxLauncher(SandboxLauncher):
         container = _new_container_name(name)
         image = self._resolve_image()
         network = self._resolve_network()
-        env_literals = self._resolve_sandbox_env()
+        env_literals = self._resolve_sandbox_env(enterprise_id)
         args: list[str] = [
             "run",
             "-d",

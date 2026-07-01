@@ -5755,6 +5755,7 @@ async def _run_managed_launch(
     host_registry: HostRegistry | None,
     tunnel_registry: TunnelRegistry | None,
     relaunch_host: Host | None = None,
+    enterprise_id: str | None = None,
 ) -> None:
     """
     Provision a managed sandbox for a session in the background.
@@ -5803,6 +5804,10 @@ async def _run_managed_launch(
     :param relaunch_host: Existing managed host row to relaunch a new
         sandbox generation for, or ``None`` for a first launch (a
         fresh host identity is minted).
+    :param enterprise_id: The session's enterprise alias (from its
+        ``enterprise_id`` label), threaded to the sandbox launcher for
+        per-enterprise credential injection. ``None`` for a session
+        without an enterprise.
     """
     managed = await _provision_managed_sandbox(
         session_id=session_id,
@@ -5812,6 +5817,7 @@ async def _run_managed_launch(
         tracker=tracker,
         host_store=host_store,
         relaunch_host=relaunch_host,
+        enterprise_id=enterprise_id,
     )
     if managed is None:
         return
@@ -5836,6 +5842,7 @@ async def _provision_managed_sandbox(
     tracker: ManagedLaunchTracker,
     host_store: HostStore,
     relaunch_host: Host | None,
+    enterprise_id: str | None = None,
 ) -> ManagedHostLaunch | None:
     """
     Run the provision phase of a background managed launch.
@@ -5853,6 +5860,9 @@ async def _provision_managed_sandbox(
     :param host_store: Persistent host registrations.
     :param relaunch_host: Existing host row for a relaunch, or
         ``None`` for a first launch.
+    :param enterprise_id: The session's enterprise alias, threaded to
+        the launch helpers for per-enterprise credential injection, or
+        ``None``.
     :returns: The launch result, or ``None`` when the launch failed
         (the tracker entry is already settled with the reason).
     """
@@ -5878,6 +5888,7 @@ async def _provision_managed_sandbox(
                 host_store=host_store,
                 repo=repo,
                 on_stage=_on_stage,
+                enterprise_id=enterprise_id,
             )
         return await launch_managed_host(
             config=sandbox_config,
@@ -5885,6 +5896,7 @@ async def _provision_managed_sandbox(
             host_store=host_store,
             repo=repo,
             on_stage=_on_stage,
+            enterprise_id=enterprise_id,
         )
     except HTTPException as exc:
         _logger.warning(
@@ -6159,7 +6171,11 @@ def _kick_managed_relaunch(
     :param host_store: Persistent host registrations.
     :param app_state: ``request.app.state`` — supplies the registries.
     """
-    from omnigent.server.managed_hosts import MANAGED_REPO_LABEL_KEY, parse_repo_workspace
+    from omnigent.server.managed_hosts import (
+        MANAGED_ENTERPRISE_LABEL_KEY,
+        MANAGED_REPO_LABEL_KEY,
+        parse_repo_workspace,
+    )
 
     # Re-clone the repository the session was created with so the
     # fresh generation's workspace matches the create-time state.
@@ -6200,6 +6216,7 @@ def _kick_managed_relaunch(
             host_registry=getattr(app_state, "host_registry", None),
             tunnel_registry=getattr(app_state, "tunnel_registry", None),
             relaunch_host=host,
+            enterprise_id=conv.labels.get(MANAGED_ENTERPRISE_LABEL_KEY),
         )
     )
     _managed_launch_tasks.add(relaunch_task)
@@ -13287,8 +13304,15 @@ def create_sessions_router(
                 )
             from omnigent.server.auth import RESERVED_USER_LOCAL
             from omnigent.server.managed_hosts import (
+                MANAGED_ENTERPRISE_LABEL_KEY,
                 MANAGED_REPO_LABEL_KEY,
                 parse_repo_workspace,
+            )
+
+            # The session's enterprise (BFF-set label) selects which
+            # enterprise's credential file the sandbox launcher injects.
+            _enterprise_id = (
+                conv.labels.get(MANAGED_ENTERPRISE_LABEL_KEY) if conv is not None else None
             )
 
             # A managed workspace is a repository URL (schema-
@@ -13326,6 +13350,7 @@ def create_sessions_router(
                     host_store=host_store_for_managed,
                     host_registry=getattr(request.app.state, "host_registry", None),
                     tunnel_registry=getattr(request.app.state, "tunnel_registry", None),
+                    enterprise_id=_enterprise_id,
                 )
             )
             _managed_launch_tasks.add(launch_task)
