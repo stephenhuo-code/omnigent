@@ -499,4 +499,41 @@ def create_builtin_agents_router(
             )
         return _to_agent_object(agent, agent_cache)
 
+    @router.delete("/agents/{agent_id}")
+    async def delete_builtin_agent(agent_id: str, request: Request) -> dict[str, Any]:
+        """Delete a template (``session_id IS NULL``) agent by id.
+
+        The additive counterpart to ``POST /agents``: same header-trust
+        auth, and it only ever removes **template** agents — the kind
+        ``GET /v1/agents`` lists and ``POST /agents`` creates. A
+        session-scoped copy (``session_id`` set) is refused, so this can
+        never delete another conversation's private agent.
+
+        Tenant ownership (the enterprise name-prefix convention) is NOT
+        judged here — omnigent stays tenant-unaware. The trust boundary
+        (the BFF proxy) resolves the caller's enterprise and rejects any
+        delete of a built-in or another enterprise's agent BEFORE calling
+        this. Direct callers of the raw omnigent API are single-trust by
+        deployment (header-trust behind the BFF).
+
+        :param agent_id: The template agent id to delete, e.g. ``ag_ab12``.
+        :param request: Incoming request (for the same auth as the rest).
+        :returns: ``{"deleted": True, "id": <agent_id>}`` on success.
+        :raises OmnigentError: ``NOT_FOUND`` (404) when no template agent
+            with that id exists (absent, or a session-scoped copy).
+        """
+        _require_user(request, auth_provider)
+        agent = await asyncio.to_thread(agent_store.get, agent_id)
+        if agent is None or agent.session_id is not None:
+            # Absent, or a session-scoped copy (not a template) → 404.
+            raise OmnigentError(
+                f"agent {agent_id!r} not found", code=ErrorCode.NOT_FOUND
+            )
+        deleted = await asyncio.to_thread(agent_store.delete, agent_id)
+        if not deleted:  # pragma: no cover — raced delete; treat as not found
+            raise OmnigentError(
+                f"agent {agent_id!r} not found", code=ErrorCode.NOT_FOUND
+            )
+        return {"deleted": True, "id": agent_id}
+
     return router
