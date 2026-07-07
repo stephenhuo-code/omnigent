@@ -31,6 +31,8 @@ _SDK_MODEL_OVERRIDE_HARNESSES: frozenset[str] = frozenset(
         "codex",
         "pi",
         "openai-agents",
+        "minimax",
+        "deepseek",
         "cursor",
         "antigravity",
         "kimi",

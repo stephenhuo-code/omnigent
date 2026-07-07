@@ -1120,11 +1120,17 @@ def test_build_runner_env_forwards_harness_credentials_and_endpoints() -> None:
         "HOME": "/root",
         "ANTHROPIC_API_KEY": "sk-a",
         "ANTHROPIC_BASE_URL": "https://gateway.example.com/anthropic",
+        # Present in the source env but must NOT be forwarded (lite-ai: claude
+        # subscription token is removed; claude uses ANTHROPIC_API_KEY only).
         "CLAUDE_CODE_OAUTH_TOKEN": "sk-ant-oat-sub",
         "CODEX_ACCESS_TOKEN": "codex-workspace-token",
         "OPENAI_API_KEY": "sk-o",
         "OPENAI_BASE_URL": "https://gateway.example.com/openai",
         "GEMINI_API_KEY": "g-key",
+        "MINIMAX_API_KEY": "sk-mm",
+        "MINIMAX_BASE_URL": "https://api.minimaxi.com/v1",
+        "DEEPSEEK_API_KEY": "sk-ds",
+        "DEEPSEEK_BASE_URL": "https://api.deepseek.com",
         "AWS_BEARER_TOKEN_BEDROCK": "absk-fwd",
         "ANTHROPIC_BEDROCK_BASE_URL": "https://bedrock-runtime.us-east-1.amazonaws.com",
     }
@@ -1141,11 +1147,15 @@ def test_build_runner_env_forwards_harness_credentials_and_endpoints() -> None:
     for name in (
         "ANTHROPIC_API_KEY",
         "ANTHROPIC_BASE_URL",
-        "CLAUDE_CODE_OAUTH_TOKEN",
         "CODEX_ACCESS_TOKEN",
         "OPENAI_API_KEY",
         "OPENAI_BASE_URL",
         "GEMINI_API_KEY",
+        # Lite-AI per-provider slots (own harness reads these, not OPENAI_*).
+        "MINIMAX_API_KEY",
+        "MINIMAX_BASE_URL",
+        "DEEPSEEK_API_KEY",
+        "DEEPSEEK_BASE_URL",
         "AWS_BEARER_TOKEN_BEDROCK",
         "ANTHROPIC_BEDROCK_BASE_URL",
     ):
@@ -1157,6 +1167,10 @@ def test_build_runner_env_forwards_harness_credentials_and_endpoints() -> None:
     # but never invented into the env.
     assert "ANTHROPIC_AUTH_TOKEN" in HARNESS_CREDENTIAL_ENV_VARS
     assert "ANTHROPIC_AUTH_TOKEN" not in env
+    # lite-ai: the claude subscription token is fully removed — never in the
+    # forward set and never forwarded even when present in the source env.
+    assert "CLAUDE_CODE_OAUTH_TOKEN" not in HARNESS_CREDENTIAL_ENV_VARS
+    assert "CLAUDE_CODE_OAUTH_TOKEN" not in env
 
 
 def test_build_runner_env_passthrough_extends_forwarded_set() -> None:

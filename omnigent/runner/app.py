@@ -17272,6 +17272,9 @@ _HARNESS_MODEL_ENV_KEY: dict[str, str] = {
     "codex": "HARNESS_CODEX_MODEL",
     "pi": "HARNESS_PI_MODEL",
     "openai-agents": "HARNESS_OPENAI_AGENTS_MODEL",
+    # Lite-AI per-provider copies of openai-agents (own credential slot).
+    "minimax": "HARNESS_MINIMAX_MODEL",
+    "deepseek": "HARNESS_DEEPSEEK_MODEL",
     "cursor": "HARNESS_CURSOR_MODEL",
     # cursor-native is intentionally omitted here (and from
     # model_override._SDK_MODEL_OVERRIDE_HARNESSES): like the other native CLIs

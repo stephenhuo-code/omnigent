@@ -331,11 +331,20 @@ HARNESS_CREDENTIAL_ENV_VARS: frozenset[str] = frozenset(
         "ANTHROPIC_BASE_URL",
         "ANTHROPIC_BEDROCK_BASE_URL",
         "AWS_BEARER_TOKEN_BEDROCK",
-        "CLAUDE_CODE_OAUTH_TOKEN",
+        # NOTE(lite-ai): CLAUDE_CODE_OAUTH_TOKEN (claude subscription) is
+        # deliberately NOT forwarded — the platform does not use the claude
+        # subscription token nor bake it into the image; claude runs on the
+        # enterprise-configured ANTHROPIC_API_KEY only (owner decision 2026-07-07).
         "CODEX_ACCESS_TOKEN",
         "OPENAI_API_KEY",
         "OPENAI_BASE_URL",
         "GEMINI_API_KEY",
+        # Lite-AI per-provider credential slots (own harness reads these, never
+        # OPENAI_*), so MiniMax / DeepSeek can be configured independently.
+        "MINIMAX_API_KEY",
+        "MINIMAX_BASE_URL",
+        "DEEPSEEK_API_KEY",
+        "DEEPSEEK_BASE_URL",
         "GIT_TOKEN",
         "GIT_USERNAME",
     }

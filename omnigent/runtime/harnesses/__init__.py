@@ -63,6 +63,12 @@ _HARNESS_MODULES: dict[str, str] = {
     # the underlying SDK package is ``openai-agents`` and the
     # executor class is :class:`OpenAIAgentsSDKExecutor`.
     "openai-agents": "omnigent.inner.openai_agents_sdk_harness",
+    # Lite-AI per-provider copies of the openai-agents wrap: same executor,
+    # each reads its OWN credential slot (MINIMAX_* / DEEPSEEK_*) so two
+    # OpenAI-compatible providers never compete for the shared OPENAI_* env in
+    # one sandbox. See omnigent/inner/{minimax,deepseek}_harness.py.
+    "minimax": "omnigent.inner.minimax_harness",
+    "deepseek": "omnigent.inner.deepseek_harness",
     # cursor harness wrap (Cursor's ``cursor-agent`` CLI, headless). See
     # omnigent/inner/cursor_harness.py.
     "cursor": "omnigent.inner.cursor_harness",

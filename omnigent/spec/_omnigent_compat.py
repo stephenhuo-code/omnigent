@@ -95,6 +95,8 @@ OMNIGENT_HARNESSES = frozenset(
         "goose-native",
         "hermes",
         "hermes-native",
+        "minimax",
+        "deepseek",
         "openai-agents",
         "open-responses",
         "opencode-native",
