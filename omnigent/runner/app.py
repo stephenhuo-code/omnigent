@@ -17351,6 +17351,17 @@ def _build_spawn_env_from_spec(
             env = _build_goose_spawn_env(spec, workdir=workdir)
         elif harness == "copilot":
             env = _build_copilot_spawn_env(spec, workdir=workdir)
+        elif harness in ("minimax", "deepseek"):
+            # Lite-AI per-provider copies of openai-agents: creds come from the
+            # sandbox env slot (MINIMAX_*/DEEPSEEK_*), so the only spec-derived
+            # spawn-env is the model — bake it into HARNESS_<NAME>_MODEL so the
+            # agent spec's declared model reaches the harness (else it falls back
+            # to the harness _DEFAULT_MODEL). Mirrors _resolve_spec_model usage
+            # in the workflow builders.
+            from omnigent.runtime.workflow import _resolve_spec_model
+
+            _spec_model = _resolve_spec_model(spec)
+            env = {_HARNESS_MODEL_ENV_KEY[harness]: _spec_model} if _spec_model else {}
         else:
             # Native terminal harnesses and unknown harnesses build env elsewhere.
             return None

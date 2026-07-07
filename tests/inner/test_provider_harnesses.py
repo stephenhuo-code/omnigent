@@ -132,3 +132,31 @@ def test_claude_subscription_token_not_forwarded() -> None:
     the subscription token must not be used nor baked into the image.
     """
     assert "CLAUDE_CODE_OAUTH_TOKEN" not in HARNESS_CREDENTIAL_ENV_VARS
+
+
+@pytest.mark.parametrize("harness,module,api_env,base_env,model_env,dbase,dmodel", _PROVIDERS)
+def test_spec_model_flows_to_harness_spawn_env(
+    harness, module, api_env, base_env, model_env, dbase, dmodel
+) -> None:
+    """The agent spec's declared model reaches the harness (touch-point #7).
+
+    Without a branch in ``_build_spawn_env_from_spec`` for these harnesses, the
+    spawn-env is ``None`` and the harness silently falls back to its own
+    ``_DEFAULT_MODEL`` — a custom agent's model would be ignored. Verified live:
+    a deepseek-harness agent declaring a different model only honored it once
+    this branch baked HARNESS_DEEPSEEK_MODEL from the spec.
+    """
+    from omnigent.runner.app import _build_spawn_env_from_spec
+    from omnigent.spec.types import AgentSpec, ExecutorSpec
+
+    spec = AgentSpec(
+        spec_version=1,
+        name="x",
+        executor=ExecutorSpec(type="omnigent", config={"harness": harness}, model="probe-model-9b"),
+    )
+    env = _build_spawn_env_from_spec(spec, harness)
+    assert env is not None
+    assert env[model_env] == "probe-model-9b"
+    # per-session /model override still wins.
+    overridden = _build_spawn_env_from_spec(spec, harness, model_override="other-model-3b")
+    assert overridden[model_env] == "other-model-3b"
