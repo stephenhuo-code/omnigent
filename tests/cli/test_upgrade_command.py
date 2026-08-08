@@ -17,7 +17,7 @@ from omnigent.update_check import (
 
 
 def _uv_registry_info() -> _InstalledWheelInfo:
-    """A registry uv-tool install → ``uv tool upgrade omnigent`` (runnable)."""
+    """A registry uv-tool install → ``uv tool upgrade omniagent`` (runnable)."""
     return _InstalledWheelInfo(
         install_time_epoch=0.0,
         installer="uv",
@@ -135,7 +135,7 @@ def test_upgrade_runs_installer_and_drains_first(
     assert result.exit_code == 0, result.output
     # Drain happened before the stop, before the install ran.
     assert events == ["drained", "stop(force=False)"]
-    assert ran == ["uv tool upgrade omnigent"]
+    assert ran == ["uv tool upgrade omniagent"]
     assert "Upgraded to v0.2.0" in result.output
 
 
@@ -322,7 +322,7 @@ def test_upgrade_pre_passes_prerelease_flag_to_installer(
     result = CliRunner().invoke(cli, ["upgrade", "--pre"])
 
     assert result.exit_code == 0, result.output
-    assert ran == ["uv tool upgrade omnigent --prerelease allow"]
+    assert ran == ["uv tool upgrade omniagent --prerelease allow"]
 
 
 # ── ``omni update`` alias ────────────────────────────────────────────
@@ -682,7 +682,7 @@ def test_nightly_suggestion_preserves_and_unions_extras() -> None:
     assert suggestion.runnable
     assert suggestion.command == (
         "uv tool install --force "
-        "git+https://github.com/omnigent-ai/omnigent@v0.9.0.dev20260804#egg=omnigent[all,server]"
+        "git+https://github.com/omnigent-ai/omnigent@v0.9.0.dev20260804#egg=omniagent[all,server]"
     )
 
 
