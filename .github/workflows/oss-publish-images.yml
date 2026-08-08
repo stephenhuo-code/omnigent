@@ -14,8 +14,6 @@
 #   :main           HEAD of main (dev channel); server + host, amd64 only.
 #   :latest-rc      the highest version OVERALL, max(release, rc) — the newest
 #                   thing tagged, pre-release or not.
-#   :latest-nightly the most recent nightly main build (bleeding edge); moves
-#                   once a day when the scheduled build rebuilds main HEAD.
 # Ordering for :latest / :latest-rc uses PEP 440 (1.2.3rc1 < 1.2.3), which
 # `sort -V` gets wrong, so the max is computed with .github/scripts/
 # oss-publish-images/maxver.py (Python `packaging`).
@@ -34,10 +32,9 @@ on:
   push:
     branches: ['main']
     tags: ['v*']
-  # Nightly rebuild of main HEAD (07:00 UTC), same narrow dev channel. Keeps
-  # :latest-nightly fresh on days with no commits.
-  schedule:
-    - cron: '0 7 * * *'
+  # No nightly rebuild: it existed upstream to cover main pushes not building,
+  # and they build here. Rerunning it would rebuild identical code. Dispatch
+  # manually when a base-image patch is worth picking up.
   workflow_dispatch:
     inputs:
       bump_latest:
@@ -65,9 +62,9 @@ jobs:
     permissions:
       contents: read
       packages: write # push the image to GHCR via GITHUB_TOKEN
-    # Gated to this repository; inert in forks and mirrors. Runs on tag pushes,
-    # the nightly schedule (rebuild of main HEAD), and bump_latest dispatches.
-    # Skipped on reconcile_floating dispatches — that only drives the
+    # Gated to this repository; inert in forks and mirrors. Runs on main
+    # pushes, tag pushes, and bump_latest dispatches. Skipped on
+    # reconcile_floating dispatches — that only drives the
     # reconcile-floating retag job.
     if: github.repository == 'stephenhuo-code/omnigent' && !inputs.reconcile_floating
     runs-on: ubuntu-latest
@@ -138,14 +135,12 @@ jobs:
             KUBERNETES_TAGS="${KUBERNETES_TAGS},${KUBERNETES_IMAGE}:$1"
           }
 
-          # Dev channel: any build off main (push or nightly). Moves :main so
-          # a deploy can track HEAD, and :latest-nightly for the bleeding-edge
-          # alias. IS_DEV narrows the build matrix below.
+          # Dev channel: a push to main. Moves :main so a deploy can track
+          # HEAD. IS_DEV narrows the build matrix below.
           IS_DEV=false
           if [ "${GH_REF}" = "refs/heads/main" ]; then
             IS_DEV=true
             add_tag "main"
-            add_tag "latest-nightly"
           fi
 
           if [[ "${GH_REF}" == refs/tags/v* ]]; then
