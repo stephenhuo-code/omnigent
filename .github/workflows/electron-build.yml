@@ -1,19 +1,27 @@
 name: Electron Build
 
 # Manually-triggered build of the Electron desktop shell (web/electron) for
-# Linux and Windows. Each platform packages on its own native runner —
+# macOS, Linux and Windows. Each platform packages on its own native runner —
 # electron-builder does not reliably cross-compile installers — and uploads the
-# installers PLUS the electron-updater feed manifests (latest-linux.yml /
-# latest.yml) as downloadable workflow artifacts. Unsigned: no signing creds are
-# wired here, so `CSC_IDENTITY_AUTO_DISCOVERY=false` forces an unsigned build
-# rather than failing when a cert is absent. No publishing to a provider / no
-# release upload (`--publish never`): the artifacts are captured here for manual
-# placement onto the omnigent.ai update feed (omnigent-site repo + artifact host).
+# installers PLUS the electron-updater feed manifests (latest-mac.yml /
+# latest-linux.yml / latest.yml) as downloadable workflow artifacts. Unsigned
+# on every platform: no signing creds are wired here, so
+# `CSC_IDENTITY_AUTO_DISCOVERY=false` forces an unsigned build rather than
+# failing when a cert is absent. No publishing to a provider / no release
+# upload (`--publish never`): the artifacts are captured here, and
+# github-release.yml attaches them to the release on a v* tag.
 #
-# Run it from the Actions tab (Run workflow). macOS is intentionally omitted —
-# its signed/notarized build lives elsewhere.
+# Run it from the Actions tab (Run workflow). The macOS build is unsigned, so
+# a downloaded .app is quarantined until the user clears the attribute — see
+# docs/deployment.md § 7.
 
 on:
+  # Release channel: a version tag builds all three platforms and the
+  # attach-to-release job below puts the installers on the GitHub release.
+  # Same glob as github-release.yml so the two agree on what a release is.
+  push:
+    tags:
+      - "v[0-9]*"
   workflow_dispatch:
     inputs:
       ref:
@@ -21,6 +29,7 @@ on:
         required: false
         default: ""
 
+# Read-only at the top level; the release upload job widens it to write.
 permissions:
   contents: read
 
@@ -42,12 +51,21 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # macos-latest is Apple Silicon, so this builds arm64 natively.
+          # extra-args overrides the signing identity baked into
+          # package.json — see the build step below.
+          - os: macos-latest
+            platform: mac
+            build-script: build:mac
+            extra-args: -c.mac.identity=null
           - os: ubuntu-latest
             platform: linux
             build-script: build:linux
+            extra-args: ""
           - os: windows-latest
             platform: win
             build-script: build:win
+            extra-args: ""
 
     steps:
       - name: Check out repo
@@ -75,7 +93,12 @@ jobs:
           # electron-builder downloads Electron/tooling from GitHub; the token
           # lifts the anonymous rate limit that otherwise flakes downloads.
           GH_TOKEN: ${{ github.token }}
-        run: pnpm run ${{ matrix.build-script }} -- --publish never
+        # macOS additionally needs the identity overridden on the command
+        # line: package.json pins a certificate this repo does not hold, and
+        # the env var above only suppresses auto-discovery, not an explicit
+        # pin. Overriding here rather than in package.json keeps the file
+        # merge-clean against upstream.
+        run: pnpm run ${{ matrix.build-script }} -- --publish never ${{ matrix.extra-args }}
 
       # One artifact per platform bundling the COMPLETE electron-updater feed —
       # the installer(s), the .blockmap electron-updater needs for differential
@@ -92,6 +115,20 @@ jobs:
       # --publish never (a publish config exists in build.*.publish, so
       # update-info generation runs; --publish only skips the provider upload).
       # The manifest lists each artifact with sha512 + size + relative url.
+
+      - name: Upload macOS feed
+        if: matrix.platform == 'mac'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        with:
+          name: omnigent-desktop-mac
+          path: |
+            web/electron/dist/*.dmg
+            web/electron/dist/*.dmg.blockmap
+            web/electron/dist/*-mac.zip
+            web/electron/dist/*-mac.zip.blockmap
+            web/electron/dist/latest-mac.yml
+          if-no-files-found: error
+          retention-days: 14
 
       - name: Upload Linux feed
         if: matrix.platform == 'linux'
@@ -117,3 +154,63 @@ jobs:
             web/electron/dist/latest.yml
           if-no-files-found: error
           retention-days: 14
+
+  # Attach the installers to the GitHub release for a version tag. Manual
+  # dispatches stop at the workflow artifacts above — only a tag publishes.
+  attach-to-release:
+    name: Attach installers to release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v') && github.repository == 'stephenhuo-code/omnigent'
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Skip pre-release tags (rcN / devN / preN)
+        id: tag
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          # github-release.yml creates no release for these, so there would be
+          # nothing to upload to. Same gate, same reasoning.
+          case "$TAG" in
+            *rc[0-9]*|*dev[0-9]*|*pre[0-9]*)
+              echo "Pre-release tag ${TAG} — no GitHub release to attach to." \
+                | tee -a "$GITHUB_STEP_SUMMARY"
+              echo "skip=true" >> "$GITHUB_OUTPUT" ;;
+            *)
+              echo "skip=false" >> "$GITHUB_OUTPUT" ;;
+          esac
+
+      - name: Download built installers
+        if: steps.tag.outputs.skip != 'true'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8.0.1
+        with:
+          path: installers
+          pattern: omnigent-desktop-*
+          merge-multiple: true
+
+      - name: Upload to the release
+        if: steps.tag.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          # github-release.yml drafts the release on the same tag push. That
+          # job takes seconds and this one follows a multi-platform build, so
+          # the draft is normally long since created — poll anyway rather than
+          # lose the installers to a race.
+          for _ in $(seq 1 30); do
+            if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+              break
+            fi
+            echo "Waiting for release $TAG to be drafted…"
+            sleep 10
+          done
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null
+
+          # --clobber so a re-run replaces assets instead of failing on them.
+          find installers -type f -print0 \
+            | xargs -0 gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" --clobber
+          echo "Attached desktop installers to $TAG." | tee -a "$GITHUB_STEP_SUMMARY"

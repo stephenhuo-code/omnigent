@@ -41,8 +41,8 @@ permissions:
 
 jobs:
   draft-release:
-    # Inert in forks / mirrors — only the canonical repo should cut releases.
-    if: github.repository == 'omnigent-ai/omnigent'
+    # Inert in other forks / mirrors — only this repo cuts its releases.
+    if: github.repository == 'stephenhuo-code/omnigent'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
