@@ -111,10 +111,17 @@ jobs:
       # Ship only the distributables + feed files, not electron-builder's
       # unpacked intermediates (dist/*-unpacked).
       #
-      # electron-builder writes the latest*.yml manifests to dist/ even under
+      # electron-builder writes the update manifests to dist/ even under
       # --publish never (a publish config exists in build.*.publish, so
       # update-info generation runs; --publish only skips the provider upload).
       # The manifest lists each artifact with sha512 + size + relative url.
+      #
+      # The manifest is named for the channel electron-builder derives from
+      # the version: latest-mac.yml for 0.9.0, dev-mac.yml for 0.9.0-dev.0,
+      # rc-mac.yml for a release candidate. The globs below stay
+      # channel-agnostic so a pre-release build doesn't trip
+      # if-no-files-found. Windows has no platform suffix to match on, so it
+      # takes every .yml except electron-builder's own debug dump.
 
       - name: Upload macOS feed
         if: matrix.platform == 'mac'
@@ -126,7 +133,7 @@ jobs:
             web/electron/dist/*.dmg.blockmap
             web/electron/dist/*-mac.zip
             web/electron/dist/*-mac.zip.blockmap
-            web/electron/dist/latest-mac.yml
+            web/electron/dist/*-mac.yml
           if-no-files-found: error
           retention-days: 14
 
@@ -139,7 +146,7 @@ jobs:
             web/electron/dist/*.AppImage
             web/electron/dist/*.AppImage.blockmap
             web/electron/dist/*.deb
-            web/electron/dist/latest-linux.yml
+            web/electron/dist/*-linux.yml
           if-no-files-found: error
           retention-days: 14
 
@@ -151,7 +158,8 @@ jobs:
           path: |
             web/electron/dist/*.exe
             web/electron/dist/*.exe.blockmap
-            web/electron/dist/latest.yml
+            web/electron/dist/*.yml
+            !web/electron/dist/builder-debug.yml
           if-no-files-found: error
           retention-days: 14
 
