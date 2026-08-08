@@ -28,9 +28,9 @@
 │   └───────┬───────────────────┬───────────────────┬───────────────┘ │
 │           ▼                   ▼                   ▼                 │
 │   ghcr.io/stephenhuo-code   GitHub Releases    pypi.org             │
-│     omnigent-server           Omnigent-*.dmg     omniagent          │
-│       :main :sha-xxx (dev)    Omnigent-*.exe     omniagent-client   │
-│       :v0.9.0 :latest (rel)   *.AppImage         omniagent-ui-sdk   │
+│     omnigent-server           Omnigent-*.dmg     omniagentkit       │
+│       :main :sha-xxx (dev)    Omnigent-*.exe     omniagentkit-client│
+│       :v0.9.0 :latest (rel)   *.AppImage         omniagentkit-ui-sdk│
 │     omnigent-host                                                   │
 └───────────┬───────────────────────┬───────────────────┬─────────────┘
             │ docker pull           │ 浏览器下载        │ uv tool install
@@ -42,7 +42,7 @@
 │  │  Let's Encrypt 自动 │  │HTTPS│    未签名，首次需去隔离属性        │
 │  │  签发/续期证书      │  │   │                                     │
 │  └──────────┬──────────┘  │   │  ② host 进程                        │
-│             ▼ :8000       │   │     uv tool install omniagent       │
+│             ▼ :8000       │   │     uv tool install omniagentkit     │
 │  ┌─────────────────────┐  │   │     omniagent host --server https://…│
 │  │ omnigent server     │◄─┼───┼──   ▲ 出站连接                      │
 │  │  ghcr:latest        │  │WSS│     │ 无需公网 IP / 不开端口        │
@@ -98,15 +98,28 @@ server 镜像里虽然有 `host` 子命令，但缺 git/node/CLI，跑不动实�
 
 | 层 | 现在 | 改成 | 说明 |
 |---|---|---|---|
-| **分发名**（`pip install` 用） | `omnigent` | `omniagent` | 三个包统一改 |
-| | `omnigent-client` | `omniagent-client` | |
-| | `omnigent-ui-sdk` | `omniagent-ui-sdk` | |
-| **命令名**（终端里敲） | `omnigent` / `omni` | `omniagent` / `omni` | 见下方兼容别名 |
+| **分发名**（`pip install` 用） | `omnigent` | `omniagentkit` | 三个包统一改 |
+| | `omnigent-client` | `omniagentkit-client` | |
+| | `omnigent-ui-sdk` | `omniagentkit-ui-sdk` | |
+| **命令名**（终端里敲） | `omnigent` / `omni` | `omniagent` / `omni` / `omnigent` | 见下方 |
 | **导入名**（`import` 用） | `omnigent` | **不改** | 目录名和所有 `import omnigent` 保持原样 |
 
-> `omni-agent`（带连字符）在 PyPI 已被他人占用，所以用无连字符的 `omniagent`。PyPI 的名称归一化只把 `-` `_` `.` 视作等价，`omniagent` 与 `omni-agent` 是两个独立的名字。
-
 导入名坚决不动：改它要重命名目录并修改上千处 import，且每次合并上游必然大面积冲突，而这一层对使用者完全不可见。
+
+### 为什么不是 `omniagent`
+
+PyPI 创建新包时有一层反抢注检查，它比 PEP 503 的归一化更严格：**把所有分隔符直接删掉再比对**。
+
+```
+omni-agent   →  omniagent     ← 已被他人占用
+omniagent    →  omniagent     ← 撞上，PyPI 拒绝创建
+```
+
+（注意这只影响**创建**。已存在的 `omni-agent` 和 `omniagent` 在解析时仍是两个不同的包。）
+
+`omniagentkit` 删掉分隔符后是 `omniagentkit`，与任何已有名字都不接近，所以能过。选它而非 `omnigent-x` 之类，是因为后者归一化后只与 `omnigent` 差一个字符，有再次被判定为相似的风险。
+
+**分发名和命令名不必一致**——命令不受 PyPI 命名空间约束。所以装的时候是 `omniagentkit`，用的时候仍是 `omniagent`。
 
 ### 命令别名：保留 `omnigent`
 
@@ -132,9 +145,9 @@ ghcr 镜像保持 `omnigent-server` / `omnigent-host`。命名空间 `stephenhuo
 三个包**版本锁死联动**——`release-omnigent.yml` 的校验脚本强制要求三者版本都等于 tag，且交叉依赖是精确 `==tag` 的 pin。发版前必须同步改三个 `pyproject.toml`：
 
 ```
-pyproject.toml                    version = "0.9.0"  + 依赖 omniagent-client==0.9.0, omniagent-ui-sdk==0.9.0
-sdks/python-client/pyproject.toml version = "0.9.0"  + 依赖 omniagent==0.9.0
-sdks/ui/pyproject.toml            version = "0.9.0"  + 依赖 omniagent-client==0.9.0
+pyproject.toml                    version = "0.9.0"  + 依赖 omniagentkit-client==0.9.0, omniagentkit-ui-sdk==0.9.0
+sdks/python-client/pyproject.toml version = "0.9.0"  + 依赖 omniagentkit==0.9.0
+sdks/ui/pyproject.toml            version = "0.9.0"  + 依赖 omniagentkit-client==0.9.0
 ```
 
 当前是 `0.9.0.dev0`，首个正式版为 `v0.9.0`。
@@ -163,9 +176,9 @@ sdks/ui/pyproject.toml            version = "0.9.0"  + 依赖 omniagent-client==
 
 | # | 文件 | 改动 |
 |---|---|---|
-| 1 | `pyproject.toml` | 分发名 → `omniagent`；两个交叉 pin 改名；`[project.scripts]` 加 `omniagent` 入口；`[tool.uv.sources]` 键改名 |
-| 2 | `sdks/python-client/pyproject.toml` | 分发名 → `omniagent-client`；对主包的 pin 与 uv 源键改名；显式声明 wheel 包目录 |
-| 3 | `sdks/ui/pyproject.toml` | 分发名 → `omniagent-ui-sdk`；对 client 的 pin 改名；显式声明 wheel 包目录 |
+| 1 | `pyproject.toml` | 分发名 → `omniagentkit`；两个交叉 pin 改名；`[project.scripts]` 加 `omniagent` 入口；`[tool.uv.sources]` 键改名 |
+| 2 | `sdks/python-client/pyproject.toml` | 分发名 → `omniagentkit-client`；对主包的 pin 与 uv 源键改名；显式声明 wheel 包目录 |
+| 3 | `sdks/ui/pyproject.toml` | 分发名 → `omniagentkit-ui-sdk`；对 client 的 pin 改名；显式声明 wheel 包目录 |
 | 4 | `scripts/update_versions.py` | 版本联动脚本里的包名表同步改名 |
 | 5 | `.github/workflows/release-omnigent.yml` | 校验脚本 `packages` 字典改名；仓库门禁改本 fork；核心 wheel 的 glob 改名；冒烟测试断言三个命令 |
 | 6 | `.github/workflows/oss-publish-images.yml` | 镜像名参数化（含 SBOM 与 reconcile）；加 `push: branches:[main]`；dev 通道收窄；仓库门禁改本 fork |
@@ -258,7 +271,7 @@ matrix:
 2. Publishing → Add a pending publisher，对三个包各做一遍：
 
    ```
-   PyPI Project Name:  omniagent          （另两次：omniagent-client / omniagent-ui-sdk）
+   PyPI Project Name:  omniagentkit          （另两次：omniagentkit-client / omniagentkit-ui-sdk）
    Owner:              stephenhuo-code
    Repository name:    omnigent
    Workflow name:      release-omnigent.yml
@@ -481,7 +494,7 @@ docker compose logs -f omnigent      # 看到监听日志后 Ctrl-C
 ### 6.1 安装
 
 ```bash
-uv tool install omniagent
+uv tool install omniagentkit
 omniagent --version
 ```
 
@@ -531,7 +544,7 @@ tmux attach -t host        # 查看
 ### 6.5 升级
 
 ```bash
-uv tool upgrade omniagent
+uv tool upgrade omniagentkit
 ```
 
 升级前先停掉 host 进程。**server 和 host 的版本应保持一致**——跨版本可能有协议不兼容。
@@ -607,7 +620,7 @@ docker compose up -d         # 只重建有变化的容器
 docker compose logs -f omnigent
 ```
 
-数据库和 artifacts 都在 volume 上，不受影响。**升级后同步升级本地 host**（`uv tool upgrade omniagent`），保持版本一致。
+数据库和 artifacts 都在 volume 上，不受影响。**升级后同步升级本地 host**（`uv tool upgrade omniagentkit`），保持版本一致。
 
 ### 8.3 回滚
 

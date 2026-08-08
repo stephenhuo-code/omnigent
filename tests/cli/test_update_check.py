@@ -122,7 +122,7 @@ def test_find_repo_root_accepts_git_plus_pyproject(
     repo = tmp_path / "omnigent"
     repo.mkdir()
     (repo / ".git").mkdir()
-    (repo / "pyproject.toml").write_text('[project]\nname = "omniagent"\n')
+    (repo / "pyproject.toml").write_text('[project]\nname = "omniagentkit"\n')
     pkg_dir = repo / "omnigent"
     pkg_dir.mkdir()
     fake_file = pkg_dir / "update_check.py"
@@ -621,7 +621,7 @@ def _write_fake_dist_info(
         this is the fallback signal when ``uv_cache.json`` is absent.
     :returns: A ``PathDistribution`` constructed against the dir.
     """
-    dist_info = tmp_path / "omniagent-0.1.0.dist-info"
+    dist_info = tmp_path / "omniagentkit-0.1.0.dist-info"
     dist_info.mkdir()
     (dist_info / "METADATA").write_text("Metadata-Version: 2.1\nName: omnigent\nVersion: 0.1.0\n")
     if installer is not None:
@@ -799,7 +799,7 @@ def test_read_wheel_info_editable_install_is_marked(
 def test_read_wheel_info_pip_registry_install(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """``pip install omniagent`` from PyPI: no direct_url, mtime fallback."""
+    """``pip install omniagentkit`` from PyPI: no direct_url, mtime fallback."""
     # 2 days ago in epoch seconds.
     install_time = time.time() - 2 * 86400
     dist = _write_fake_dist_info(
@@ -838,7 +838,7 @@ def test_read_wheel_info_handles_corrupt_direct_url(
 ) -> None:
     """Corrupt direct_url.json is tolerated — fields fall back to None."""
     install_time = time.time() - 86400 - 60  # just over 1 day
-    dist_info = tmp_path / "omniagent-0.1.0.dist-info"
+    dist_info = tmp_path / "omniagentkit-0.1.0.dist-info"
     dist_info.mkdir()
     (dist_info / "METADATA").write_text("Metadata-Version: 2.1\nName: omnigent\nVersion: 0.1.0\n")
     (dist_info / "INSTALLER").write_text("uv\n")
@@ -866,28 +866,28 @@ def test_read_wheel_info_handles_corrupt_direct_url(
         ("uv", _FAKE_GIT_URL, f"uv tool install --reinstall {_FAKE_GIT_URL}", True),
         # uv + registry install — ``uv tool upgrade`` resolves from the
         # configured index. The user doesn't need to remember the spec.
-        ("uv", None, "uv tool upgrade omniagent", True),
+        ("uv", None, "uv tool upgrade omniagentkit", True),
         # pip + git install — pip's ``--force-reinstall`` re-pulls the
         # spec; plain ``pip install`` would no-op because the version
         # tag (or HEAD) is the same string.
         ("pip", _FAKE_GIT_URL, f"pip install --force-reinstall {_FAKE_GIT_URL}", True),
         # pip + registry — the canonical upgrade incantation.
-        ("pip", None, "pip install -U omniagent", True),
+        ("pip", None, "pip install -U omniagentkit", True),
         # pipx — pipx has its own subcommands; we never recommend the
         # underlying pip command because pipx wraps the venv.
-        ("pipx", _FAKE_GIT_URL, "pipx reinstall omniagent", True),
-        ("pipx", None, "pipx upgrade omniagent", True),
+        ("pipx", _FAKE_GIT_URL, "pipx reinstall omniagentkit", True),
+        ("pipx", None, "pipx upgrade omniagentkit", True),
         # poetry path — included for completeness; poetry is rare for
         # CLI tool installs but the format is documented.
-        ("poetry", None, "poetry update omniagent", True),
+        ("poetry", None, "poetry update omniagentkit", True),
         # Unknown installer WITH a VCS URL — we know the source but
         # not the tool, so the suggestion is prose ("reinstall X from
         # <url>"), not a command. Must be runnable=False so the
         # interactive prompt doesn't offer to execute prose.
-        ("custom_tool", _FAKE_GIT_URL, f"reinstall omniagent from {_FAKE_GIT_URL}", False),
+        ("custom_tool", _FAKE_GIT_URL, f"reinstall omniagentkit from {_FAKE_GIT_URL}", False),
         # Unknown installer with no source URL — honest fallback.
         # Must also be runnable=False.
-        (None, None, "reinstall omniagent from your original source", False),
+        (None, None, "reinstall omniagentkit from your original source", False),
     ],
 )
 def test_build_upgrade_suggestion_matrix(
@@ -900,7 +900,7 @@ def test_build_upgrade_suggestion_matrix(
 
     The ``runnable`` half of the assertion guards ``omni upgrade``: if a
     prose-fallback row ever flipped to runnable=True, the command would
-    try to ``subprocess.run`` the literal string "reinstall omniagent
+    try to ``subprocess.run`` the literal string "reinstall omniagentkit
     from ...", which would error or worse (if a binary named "reinstall"
     happened to exist on PATH).
     """
@@ -959,7 +959,7 @@ def test_pip_upgrade_suggestions_use_running_interpreter(
 
     assert (
         _build_upgrade_suggestion(_info(None)).command
-        == "/opt/venv/bin/python -m pip install -U omniagent"
+        == "/opt/venv/bin/python -m pip install -U omniagentkit"
     )
     assert (
         _build_upgrade_suggestion(_info(_FAKE_GIT_URL)).command
@@ -1297,7 +1297,7 @@ def test_fetch_latest_version_pep691_json(monkeypatch: pytest.MonkeyPatch) -> No
 
     assert fetch_latest_version() == "0.2.0"
     # Default index + normalized project name + JSON Accept header.
-    assert captured["url"] == "https://pypi.org/simple/omniagent/"
+    assert captured["url"] == "https://pypi.org/simple/omniagentkit/"
     assert captured["headers"] == {"Accept": "application/vnd.pypi.simple.v1+json"}
 
 
@@ -1377,9 +1377,9 @@ def test_fetch_latest_version_from_files_when_no_versions_key(
     _clear_index_env(monkeypatch)
     body = {
         "files": [
-            {"filename": "omniagent-0.1.0-py3-none-any.whl"},
-            {"filename": "omniagent-0.2.0.tar.gz"},
-            {"filename": "omniagent-0.3.0rc1-py3-none-any.whl"},  # prerelease → excluded
+            {"filename": "omniagentkit-0.1.0-py3-none-any.whl"},
+            {"filename": "omniagentkit-0.2.0.tar.gz"},
+            {"filename": "omniagentkit-0.3.0rc1-py3-none-any.whl"},  # prerelease → excluded
             {"filename": "not-a-distribution.txt"},  # ignored
         ]
     }
@@ -1458,17 +1458,17 @@ def test_build_upgrade_suggestion_allow_prerelease() -> None:
         )
 
     # Default (no pre) is unchanged.
-    assert _build_upgrade_suggestion(_info("uv")).command == "uv tool upgrade omniagent"
+    assert _build_upgrade_suggestion(_info("uv")).command == "uv tool upgrade omniagentkit"
     # uv / pip registry installs get the right flag appended.
     assert (
         _build_upgrade_suggestion(_info("uv"), allow_prerelease=True).command
-        == "uv tool upgrade omniagent --prerelease allow"
+        == "uv tool upgrade omniagentkit --prerelease allow"
     )
     # pip pins the upgrade to the running interpreter (``<python> -m pip``)
     # so it can't land in some other env whose ``pip`` shadows ours on PATH.
     assert (
         _build_upgrade_suggestion(_info("pip"), allow_prerelease=True).command
-        == f"{_pip_invocation()} install -U omniagent --pre"
+        == f"{_pip_invocation()} install -U omniagentkit --pre"
     )
     # VCS install carries the flag too.
     assert (
@@ -1486,10 +1486,10 @@ def test_build_upgrade_suggestion_allow_prerelease() -> None:
 
 def test_parse_extras_from_spec() -> None:
     """`_parse_extras_from_spec` extracts extras in declaration order."""
-    assert _parse_extras_from_spec("omniagent") == []
-    assert _parse_extras_from_spec("omniagent[all]") == ["all"]
-    assert _parse_extras_from_spec("omniagent[all,server]") == ["all", "server"]
-    assert _parse_extras_from_spec("omniagent[all , server]") == ["all", "server"]
+    assert _parse_extras_from_spec("omniagentkit") == []
+    assert _parse_extras_from_spec("omniagentkit[all]") == ["all"]
+    assert _parse_extras_from_spec("omniagentkit[all,server]") == ["all", "server"]
+    assert _parse_extras_from_spec("omniagentkit[all , server]") == ["all", "server"]
 
 
 def _make_info(
@@ -1513,15 +1513,15 @@ def _make_info(
 def test_build_upgrade_suggestion_preserves_uv_tool_extras() -> None:
     """uv tool installs with extras use ``install --reinstall`` to keep them."""
     # No extras → plain uv tool upgrade.
-    assert _build_upgrade_suggestion(_make_info("uv")).command == "uv tool upgrade omniagent"
+    assert _build_upgrade_suggestion(_make_info("uv")).command == "uv tool upgrade omniagentkit"
     # With extras → reinstall with the PEP 508 spec.
     assert (
         _build_upgrade_suggestion(_make_info("uv", extras=("all",))).command
-        == "uv tool install --reinstall omniagent[all]"
+        == "uv tool install --reinstall omniagentkit[all]"
     )
     assert (
         _build_upgrade_suggestion(_make_info("uv", extras=("server", "all"))).command
-        == "uv tool install --reinstall omniagent[all,server]"
+        == "uv tool install --reinstall omniagentkit[all,server]"
     )
 
 
@@ -1529,13 +1529,13 @@ def test_build_upgrade_suggestion_uv_target_version() -> None:
     """A pinned target version produces ``install --reinstall`` with the spec."""
     assert (
         _build_upgrade_suggestion(_make_info("uv"), target_version="0.2.0").command
-        == "uv tool install --reinstall omniagent==0.2.0"
+        == "uv tool install --reinstall omniagentkit==0.2.0"
     )
     assert (
         _build_upgrade_suggestion(
             _make_info("uv", extras=("all",)), target_version="0.2.0"
         ).command
-        == "uv tool install --reinstall omniagent==0.2.0[all]"
+        == "uv tool install --reinstall omniagentkit==0.2.0[all]"
     )
 
 
@@ -1545,20 +1545,20 @@ def test_build_upgrade_suggestion_extra_overrides_win() -> None:
         _build_upgrade_suggestion(
             _make_info("uv", extras=("all",)), extra_overrides=("server",)
         ).command
-        == "uv tool install --reinstall omniagent[all,server]"
+        == "uv tool install --reinstall omniagentkit[all,server]"
     )
     assert (
         _build_upgrade_suggestion(_make_info("uv"), extra_overrides=("all",)).command
-        == "uv tool install --reinstall omniagent[all]"
+        == "uv tool install --reinstall omniagentkit[all]"
     )
 
 
 def test_build_upgrade_suggestion_preserves_pipx_extras() -> None:
     """pipx installs with extras use ``install --force``; plain ones use ``upgrade``."""
-    assert _build_upgrade_suggestion(_make_info("pipx")).command == "pipx upgrade omniagent"
+    assert _build_upgrade_suggestion(_make_info("pipx")).command == "pipx upgrade omniagentkit"
     assert (
         _build_upgrade_suggestion(_make_info("pipx", extras=("all",))).command
-        == "pipx install --force omniagent[all]"
+        == "pipx install --force omniagentkit[all]"
     )
 
 
@@ -1571,7 +1571,7 @@ def test_build_upgrade_suggestion_vcs_preserves_extras() -> None:
     )
     assert (
         _build_upgrade_suggestion(_make_info("uv", vcs_url=git_url, extras=("all",))).command
-        == f"uv tool install --reinstall {git_url}#egg=omniagent[all]"
+        == f"uv tool install --reinstall {git_url}#egg=omniagentkit[all]"
     )
 
 
@@ -1579,7 +1579,7 @@ def test_build_upgrade_suggestion_pip_still_forms_command() -> None:
     """pip commands are still generated; ``omni upgrade`` refuses to run them."""
     assert (
         _build_upgrade_suggestion(_make_info("pip", extras=("all",))).command
-        == f"{_pip_invocation()} install -U omniagent[all]"
+        == f"{_pip_invocation()} install -U omniagentkit[all]"
     )
 
 
@@ -1594,7 +1594,7 @@ def test_read_uv_tool_extras_from_receipt(tmp_path: Path, monkeypatch: pytest.Mo
             """
             [tool]
             requirements = [
-                { name = "omniagent", extras = ["all", "server"] },
+                { name = "omniagentkit", extras = ["all", "server"] },
                 { name = "black", extras = ["jupyter"] },
             ]
             """
@@ -1626,7 +1626,7 @@ def test_read_installed_wheel_info_uses_uv_tool_receipt(
         textwrap.dedent(
             """
             [tool]
-            requirements = [{ name = "omniagent", extras = ["all"] }]
+            requirements = [{ name = "omniagentkit", extras = ["all"] }]
             """
         )
     )
@@ -1865,7 +1865,7 @@ def test_upgrade_command_for_installed(
     monkeypatch.setattr("omnigent.update_check._get_distribution", lambda: dist)
     suggestion = upgrade_command_for_installed()
     assert suggestion is not None
-    assert suggestion.command == "uv tool upgrade omniagent"
+    assert suggestion.command == "uv tool upgrade omniagentkit"
     assert suggestion.runnable is True
 
     monkeypatch.setattr("omnigent.update_check._get_distribution", lambda: None)
@@ -2158,7 +2158,7 @@ def test_run_upgrade_command_returns_minus_one_when_binary_missing(
     monkeypatch.setattr(_subprocess, "run", _raise)
 
     console = Console(stderr=True)
-    code = _run_upgrade_command("uv tool upgrade omniagent", console)
+    code = _run_upgrade_command("uv tool upgrade omniagentkit", console)
 
     # -1 distinguishes "couldn't start" from "ran and exited
     # non-zero" — the latter would be the subprocess's own code.
@@ -2274,7 +2274,7 @@ def test_split_vcs_url_strips_pip_fragment() -> None:
     """
     from omnigent.update_check import _split_vcs_url
 
-    assert _split_vcs_url("git+https://github.com/o/omnigent.git#egg=omniagent") == (
+    assert _split_vcs_url("git+https://github.com/o/omnigent.git#egg=omniagentkit") == (
         "https://github.com/o/omnigent.git",
         None,
     )
@@ -2368,7 +2368,7 @@ def test_cli_upgrade_refuses_pip_and_prints_manual_command(
     result = runner.invoke(cli, ["upgrade"])
     assert result.exit_code == 0
     assert "pip does not record which extras" in result.output
-    assert "pip install -U omniagent" in result.output
+    assert "pip install -U omniagentkit" in result.output
 
 
 def test_cli_upgrade_refuses_uv_pip_and_prints_manual_command(
@@ -2386,7 +2386,7 @@ def test_cli_upgrade_refuses_uv_pip_and_prints_manual_command(
     result = runner.invoke(cli, ["upgrade"])
     assert result.exit_code == 0
     assert "uv pip" in result.output
-    assert "uv pip install -U omniagent" in result.output
+    assert "uv pip install -U omniagentkit" in result.output
 
 
 def test_cli_upgrade_dry_run_uv_tool_with_extras(
@@ -2408,7 +2408,7 @@ def test_cli_upgrade_dry_run_uv_tool_with_extras(
     runner = CliRunner()
     result = runner.invoke(cli, ["upgrade", "--dry-run"])
     assert result.exit_code == 0
-    assert "uv tool install --reinstall omniagent[all]" in result.output
+    assert "uv tool install --reinstall omniagentkit[all]" in result.output
     assert "Would run:" in result.output
 
 

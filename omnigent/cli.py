@@ -4685,7 +4685,7 @@ def _upgrade_to_nightly(
         _uv_tool_receipt_path,
     )
 
-    current = importlib.metadata.version("omniagent")
+    current = importlib.metadata.version("omniagentkit")
     target = _latest_nightly_version()
     if target is None:
         raise click.ClickException(
@@ -4722,7 +4722,7 @@ def _upgrade_to_nightly(
                 "them safely, so install the nightly manually:\n\n"
                 f"    pip install --force-reinstall '{manual}'\n"
                 "    # or, if you need extras:\n"
-                f"    pip install --force-reinstall '{manual}#egg=omniagent[your,extras,here]'"
+                f"    pip install --force-reinstall '{manual}#egg=omniagentkit[your,extras,here]'"
             )
             raise SystemExit(0)
         if info.detected_installer == "uv" and _uv_tool_receipt_path() is None:
@@ -4733,7 +4733,7 @@ def _upgrade_to_nightly(
                 "the nightly manually:\n\n"
                 f"    uv pip install --force-reinstall '{manual}'\n"
                 "    # or, if you need extras:\n"
-                f"    uv pip install --force-reinstall '{manual}#egg=omniagent[your,extras,here]'"
+                f"    uv pip install --force-reinstall '{manual}#egg=omniagentkit[your,extras,here]'"
             )
             raise SystemExit(0)
 
@@ -4950,9 +4950,9 @@ def upgrade(
                 "omnigent was installed with pip, and pip does not record which extras "
                 "were requested. `omni upgrade` cannot preserve them safely, so you "
                 "should upgrade manually:\n\n"
-                "    pip install -U omniagent\n"
+                "    pip install -U omniagentkit\n"
                 "    # or, if you need extras:\n"
-                "    pip install -U 'omniagent[your,extras,here]'"
+                "    pip install -U 'omniagentkit[your,extras,here]'"
             )
             raise SystemExit(0)
         if info.detected_installer == "uv" and _uv_tool_receipt_path() is None:
@@ -4960,13 +4960,13 @@ def upgrade(
                 "omnigent was installed with `uv pip`, not `uv tool install`. "
                 "`uv pip` does not record which extras were requested, so "
                 "`omni upgrade` cannot preserve them safely. Upgrade manually:\n\n"
-                "    uv pip install -U omniagent\n"
+                "    uv pip install -U omniagentkit\n"
                 "    # or, if you need extras:\n"
-                "    uv pip install -U 'omniagent[your,extras,here]'"
+                "    uv pip install -U 'omniagentkit[your,extras,here]'"
             )
             raise SystemExit(0)
 
-    current = importlib.metadata.version("omniagent")
+    current = importlib.metadata.version("omniagentkit")
     latest: str | None
     if target_version:
         # A pinned target version means we don't have to ask the index what
@@ -9261,7 +9261,7 @@ _SLACK_PACKAGE = "omnigent_slack"
 _SLACK_INSTALL_HINT = (
     "The Slack integration (omnigent-slack) isn't installed in this "
     "environment. Install it alongside omnigent with the `slack` extra:\n"
-    '  uv pip install "omniagent[slack]"\n'
+    '  uv pip install "omniagentkit[slack]"\n'
     "or, from a source checkout:\n"
     "  uv sync --extra slack"
 )

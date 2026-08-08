@@ -10,8 +10,8 @@ Two install shapes are supported:
   ``git fetch`` only runs once per staleness window. The notice points
   the user at ``git pull``.
 
-* **Installed wheel** (``uv tool install omniagent``,
-  ``pip install omniagent``, ``pipx install``, Homebrew, etc.): no clone
+* **Installed wheel** (``uv tool install omniagentkit``,
+  ``pip install omniagentkit``, ``pipx install``, Homebrew, etc.): no clone
   is reachable on disk, so we compare the installed version against the
   latest release on the *configured package index* (via the Simple
   Repository API — :func:`fetch_latest_version`) and nag *only when a
@@ -64,7 +64,7 @@ _CACHE_DIR = Path.home() / ".omnigent"
 _CACHE_FILE = _CACHE_DIR / ".update_check.json"
 _STALENESS_SECONDS = 4 * 60 * 60  # 4 hours
 _GIT_TIMEOUT_SECONDS = 5
-_DIST_NAME = "omniagent"
+_DIST_NAME = "omniagentkit"
 # "Is a newer release out?" is answered against the *configured* package
 # index via the Simple Repository API (PEP 503/691) — the universal
 # protocol every index speaks (pypi.org, a corporate mirror, devpi,
@@ -1444,12 +1444,12 @@ def _pip_invocation() -> str:
 
 
 def _package_spec(*, version: str | None = None, extras: Collection[str] = ()) -> str:
-    """Build a PEP 508 package spec for ``omniagent``.
+    """Build a PEP 508 package spec for ``omniagentkit``.
 
     :param version: Optional pinned version, e.g. ``"0.2.0"``.
     :param extras: Optional extras to append.
-    :returns: ``"omniagent"``, ``"omniagent[all]"``,
-        ``"omniagent==0.2.0[all]"``, etc., depending on which arguments
+    :returns: ``"omniagentkit"``, ``"omniagentkit[all]"``,
+        ``"omniagentkit==0.2.0[all]"``, etc., depending on which arguments
         were provided.
     """
     spec = _DIST_NAME

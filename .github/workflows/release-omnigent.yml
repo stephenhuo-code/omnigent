@@ -1,5 +1,5 @@
-# Build the `omniagent` release distributions (core wheel with the web
-# UI bundled in, plus the `omniagent-client` and `omniagent-ui-sdk` SDK
+# Build the `omniagentkit` release distributions (core wheel with the web
+# UI bundled in, plus the `omniagentkit-client` and `omniagentkit-ui-sdk` SDK
 # wheels it depends on), run the readiness gates, and publish all three to
 # (Test)PyPI via OIDC Trusted Publishing. The three version-lock together,
 # so every release publishes all three at the same version. Self-contained:
@@ -18,7 +18,7 @@
 # release-omnigent.yml + the test-pypi/pypi environment (unclaimed names
 # reserved via a pending publisher); GitHub envs test-pypi (unprotected)
 # and pypi (required reviewer). Actions are SHA-pinned per repo convention.
-name: Release omniagent (PyPI)
+name: Release omniagentkit (PyPI)
 
 on:
   # PyPI publishing moved to the central secure-release repo; the tag-push
@@ -53,7 +53,7 @@ concurrency:
 jobs:
   build-and-publish:
     # Gated to this fork; inert in other forks and mirrors. Upstream
-    # publishes the `omnigent` distributions, this repo the `omniagent`
+    # publishes the `omnigent` distributions, this repo the `omniagentkit`
     # ones — running both from one repo would double-publish.
     if: github.repository == 'stephenhuo-code/omnigent'
     runs-on: ubuntu-latest
@@ -103,9 +103,9 @@ jobs:
           # Every package carries the tag's version; every cross-package
           # dep is an exact `==tag` pin (the lockstep contract).
           packages = {
-              "pyproject.toml": ("omniagent-client", "omniagent-ui-sdk"),
-              "sdks/python-client/pyproject.toml": ("omniagent",),
-              "sdks/ui/pyproject.toml": ("omniagent-client",),
+              "pyproject.toml": ("omniagentkit-client", "omniagentkit-ui-sdk"),
+              "sdks/python-client/pyproject.toml": ("omniagentkit",),
+              "sdks/ui/pyproject.toml": ("omniagentkit-client",),
           }
           errors = []
           for path, sibling_pins in packages.items():
@@ -139,7 +139,7 @@ jobs:
 
       # 5. GATE: the UI bundle must be inside the core wheel; fail loud if
       #    missing/empty. The glob matches only the core wheel (SDK wheels
-      #    are omniagent_client-* / omniagent_ui_sdk-*).
+      #    are omniagentkit_client-* / omniagentkit_ui_sdk-*).
       - name: Assert web-UI bundle shipped in the wheel
         run: |
           uv run --no-project python - <<'PY'
@@ -147,9 +147,9 @@ jobs:
           import sys
           import zipfile
 
-          whls = sorted(glob.glob("dist/omniagent-*.whl"))
+          whls = sorted(glob.glob("dist/omniagentkit-*.whl"))
           if not whls:
-              sys.exit("no core omniagent wheel found in dist/")
+              sys.exit("no core omniagentkit wheel found in dist/")
           whl = whls[-1]
           names = zipfile.ZipFile(whl).namelist()
           ui = [n for n in names if "server/static/web-ui/" in n]

@@ -10,7 +10,7 @@
 #   :sha-<short>    immutable per-commit pin, published on EVERY qualifying build.
 #   :vX.Y.Z[rcN]    immutable version pin, published for every release + pre-release tag.
 #   :latest         the highest FINAL release (max over vX.Y.Z) — tracks what
-#                   `pip install omniagent` resolves to. Pre-releases never move it.
+#                   `pip install omniagentkit` resolves to. Pre-releases never move it.
 #   :main           HEAD of main (dev channel); server + host, amd64 only.
 #   :latest-rc      the highest version OVERALL, max(release, rc) — the newest
 #                   thing tagged, pre-release or not.

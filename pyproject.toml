@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 # Distribution name only — the import package stays `omnigent` (see
 # tool.setuptools.packages.find). Upstream owns `omnigent` on PyPI.
-name = "omniagent"
+name = "omniagentkit"
 # Keep in sync with omnigent/version.py's VERSION constant.
 version = "0.9.0.dev0"
 description = "Omnigent: declarative agent authoring and runtime framework"
@@ -25,11 +25,11 @@ classifiers = [
 ]
 dependencies = [
     # SDK path-deps, version-locked: the three packages release together at
-    # one version, so a published `omniagent==X` must resolve the SDK wheels
+    # one version, so a published `omniagentkit==X` must resolve the SDK wheels
     # built alongside it (release-omnigent.yml verifies these pins match the
     # release tag). Local/editable installs still resolve via tool.uv.sources.
-    "omniagent-client==0.9.0.dev0",
-    "omniagent-ui-sdk==0.9.0.dev0",
+    "omniagentkit-client==0.9.0.dev0",
+    "omniagentkit-ui-sdk==0.9.0.dev0",
     # Merged from omnigent + omnigent.
     "pyyaml>=6.0,<7",
     # OpenClaw stores its wrapped acpx registry as JSON5.
@@ -232,13 +232,13 @@ nimble = ["nimble-python>=1.2.0,<2"]
 # lives in the separate `omnigent-slack` package (heavy deps — slack_bolt /
 # aiohttp — kept out of the baseline install). The CLI launches it as a
 # subprocess (`python -m omnigent_slack`), so it must be importable in the same
-# environment; installing `omniagent[slack]` puts it there. Local/editable
+# environment; installing `omniagentkit[slack]` puts it there. Local/editable
 # installs resolve it from `integrations/slack` via [tool.uv.sources] below;
-# publishing `omniagent[slack]` to an index additionally requires publishing
+# publishing `omniagentkit[slack]` to an index additionally requires publishing
 # `omnigent-slack` there (not yet wired into the release pipeline).
 # Version-locked (==) with the lockstep cycle — `scripts/update_versions.py`
 # keeps this pin in sync with the other sibling `==` pins
-# (`omniagent-client`, `omniagent-ui-sdk`) and the sub-package's own
+# (`omniagentkit-client`, `omniagentkit-ui-sdk`) and the sub-package's own
 # `[project].version` in `integrations/slack/pyproject.toml`.
 slack = [
     "omnigent-slack==0.9.0.dev0",
@@ -350,9 +350,11 @@ dev = [
 # Unified entry point — the click-based CLI that absorbs the legacy
 # argparse commands from `omnigent/inner/cli.py` plus the `ap`
 # subcommands. See designs/UNIFICATION.md § CLI absorption. All three
-# names resolve to the same entry point: `omniagent` matches the
-# distribution name, `omni` is the short alias, and `omnigent` is kept
-# so the repo's existing workflows, docs, and skills keep working.
+# names resolve to the same entry point. Console scripts are not
+# namespaced by PyPI, so they need not match the distribution name
+# (`omniagentkit`): `omniagent` reads better at a prompt, `omni` is the
+# short alias, and `omnigent` is kept so the repo's existing workflows,
+# docs, and skills keep working.
 omniagent = "omnigent.cli:main"
 omni = "omnigent.cli:main"
 omnigent = "omnigent.cli:main"
@@ -363,8 +365,8 @@ members = [".github/triage_v2"]
 
 # uv path-deps for the sibling SDK packages (renamed in Stage 3).
 [tool.uv.sources]
-omniagent-client = { path = "sdks/python-client", editable = true }
-omniagent-ui-sdk = { path = "sdks/ui", editable = true }
+omniagentkit-client = { path = "sdks/python-client", editable = true }
+omniagentkit-ui-sdk = { path = "sdks/ui", editable = true }
 # Local resolution for the `slack` extra. Only pulled in when `omnigent[slack]`
 # is requested (the extra is opt-in), so a default install never builds it.
 omnigent-slack = { path = "integrations/slack", editable = true }
