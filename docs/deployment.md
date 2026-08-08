@@ -148,7 +148,7 @@ sdks/ui/pyproject.toml            version = "0.9.0"  + 依赖 omniagent-client==
 | | dev 通道 | release 通道 |
 |---|---|---|
 | 触发 | push 到 `main` | 打 `v*` tag |
-| 镜像标签 | `:main`、`:sha-abc1234` | `:v0.9.0`、`:latest` |
+| 镜像标签 | `:main`、`:sha-abc1234`、`:latest-nightly` | `:v0.9.0`、`:latest`、`:latest-rc` |
 | 构建范围 | 只 server + host，只 amd64 | 全部 4 个镜像，amd64 + arm64 |
 | 桌面端 | 不自动构建（手动指定 ref 触发） | 自动构建三平台，传 Releases |
 | PyPI | 不发布 | 发布三个包 |
@@ -163,13 +163,25 @@ sdks/ui/pyproject.toml            version = "0.9.0"  + 依赖 omniagent-client==
 
 | # | 文件 | 改动 |
 |---|---|---|
-| 1 | `pyproject.toml` | 分发名 → `omniagent`；两个交叉 pin 改名；`[project.scripts]` 加 `omniagent` 入口 |
-| 2 | `sdks/python-client/pyproject.toml` | 分发名 → `omniagent-client`；对主包的 pin 改名 |
-| 3 | `sdks/ui/pyproject.toml` | 分发名 → `omniagent-ui-sdk`；对 client 的 pin 改名 |
-| 4 | `.github/workflows/release-omnigent.yml` | 校验脚本里的 `packages` 字典同步改名 |
-| 5 | `.github/workflows/oss-publish-images.yml` | 镜像名参数化；加 `push: branches:[main]`；dev 通道收窄 |
-| 6 | `.github/workflows/electron-build.yml` | 加 macOS 矩阵项 + 未签名覆盖 + dmg 产物上传 |
-| 7 | `.github/workflows/github-release.yml` | tag 时把桌面端安装包挂成 Release 附件 |
+| 1 | `pyproject.toml` | 分发名 → `omniagent`；两个交叉 pin 改名；`[project.scripts]` 加 `omniagent` 入口；`[tool.uv.sources]` 键改名 |
+| 2 | `sdks/python-client/pyproject.toml` | 分发名 → `omniagent-client`；对主包的 pin 与 uv 源键改名；显式声明 wheel 包目录 |
+| 3 | `sdks/ui/pyproject.toml` | 分发名 → `omniagent-ui-sdk`；对 client 的 pin 改名；显式声明 wheel 包目录 |
+| 4 | `scripts/update_versions.py` | 版本联动脚本里的包名表同步改名 |
+| 5 | `.github/workflows/release-omnigent.yml` | 校验脚本 `packages` 字典改名；仓库门禁改本 fork；核心 wheel 的 glob 改名；冒烟测试断言三个命令 |
+| 6 | `.github/workflows/oss-publish-images.yml` | 镜像名参数化（含 SBOM 与 reconcile）；加 `push: branches:[main]`；dev 通道收窄；仓库门禁改本 fork |
+| 7 | `.github/workflows/electron-build.yml` | 加 macOS 矩阵项 + 未签名覆盖 + 产物上传；加 tag 触发与 Release 附件 job |
+| 8 | `.github/workflows/github-release.yml` | 仓库门禁改本 fork |
+
+**实施时发现的两处额外依赖**，文档初稿没有预料到：
+
+**hatchling 需要显式声明包目录。** 两个 SDK 用 hatchling 构建，它原本从分发名推断包目录（`omnigent-client` → `omnigent_client/`）。改名后它去找不存在的 `omniagent_client/`，wheel 构建直接失败（sdist 不受影响，所以问题只在构建后期暴露）。这是「导入名保持不变」要付的代价，两个 SDK 各加一段：
+
+```toml
+[tool.hatch.build.targets.wheel]
+packages = ["omnigent_client"]      # sdks/ui 里是 omnigent_ui_sdk
+```
+
+**三个 workflow 的仓库门禁写死了上游。** `release-omnigent.yml`、`oss-publish-images.yml`、`github-release.yml` 里都有 `if: github.repository == 'omnigent-ai/omnigent'`。不改的话，这三条流水线在 fork 上会**静默跳过**——Actions 页面显示成功，实际什么也没产出，是最难排查的一类故障。
 
 ### 改动 5：镜像命名空间
 
@@ -530,7 +542,9 @@ uv tool upgrade omniagent
 
 ### 7.1 下载
 
-GitHub 仓库 → Releases → 最新版本 → 下载 `Omnigent-<版本>-arm64-mac.dmg`（Intel Mac 选 `x64`）。
+GitHub 仓库 → Releases → 最新版本 → 下载 `Omnigent-<版本>-arm64.dmg`。
+
+只构建 arm64（Apple Silicon）。macOS runner 本身就是 arm64，原生构建最快；需要 Intel 版的话在矩阵的 mac 项里加 `--x64`，构建时间会翻倍。
 
 ### 7.2 安装与首次打开
 
@@ -684,18 +698,18 @@ workflow 的 job 缺 `packages: write` 权限，或镜像命名空间与仓库 o
 
 改动之间有依赖，按这个顺序做，每步都能独立验证：
 
-1. **改包名与命令名**（`pyproject.toml` × 3 + `release-omnigent.yml` 校验脚本）
-   验证：本地 `uv build` 成功，产物文件名是 `omniagent-0.9.0.dev0-*.whl`
-2. **改镜像命名空间 + dev 通道**（`oss-publish-images.yml`）
-   验证：push 到 main，Actions 跑通，ghcr 上出现 `:main` 标签
-3. **加 macOS 桌面端构建**（`electron-build.yml`）
-   验证：手动触发 workflow，产物里有 `.dmg`
-4. **挂 Release 附件**（`github-release.yml`）
-   验证：随下一步 tag 一起验
-5. **配置 PyPI 可信发布**（PyPI 网站 + GitHub Environment）
-6. **发首个正式版** `v0.9.0`
+1. ✅ **改包名与命令名**（`pyproject.toml` × 3 + `scripts/update_versions.py` + `release-omnigent.yml`）
+   已验证：本地 `uv build` 三个包六个产物全部构建成功，核心 wheel 是 `omniagent-0.9.0.dev0-py3-none-any.whl`，`entry_points.txt` 含 `omniagent` / `omni` / `omnigent` 三个命令，`top_level.txt` 仍是 `omnigent`，版本联动校验通过
+2. ✅ **改镜像命名空间 + dev 通道**（`oss-publish-images.yml`）
+   待线上验证：push 到 main 后 Actions 跑通，ghcr 上出现 `:main` 标签
+3. ✅ **加 macOS 桌面端构建**（`electron-build.yml`）
+   待线上验证：手动触发 workflow，产物里有 `.dmg`
+4. ✅ **挂 Release 附件**（`electron-build.yml` 的 attach job + `github-release.yml` 门禁）
+   待线上验证：随第 6 步 tag 一起验
+5. ⬜ **配置 PyPI 可信发布**（PyPI 网站 + GitHub Environment）
+6. ⬜ **发首个正式版** `v0.9.0`
    验证：ghcr 有 `:v0.9.0` 和 `:latest`；Releases 有三平台安装包；PyPI 有三个包
-7. **部署 ECS**（第 5 节）
-8. **本地起 host + 装桌面端**（第 6、7 节），跑完第 9 节的验证清单
+7. ⬜ **部署 ECS**（第 5 节）
+8. ⬜ **本地起 host + 装桌面端**（第 6、7 节），跑完第 9 节的验证清单
 
-第 1-4 步是纯 CI 改动，不影响任何现有功能，可以放心先做。第 5-6 步是不可逆的——PyPI 上的版本号发出去就不能重发同一个号，所以发版前务必确认三个 `pyproject.toml` 的版本号一致。
+第 1-4 步是纯 CI 改动，不影响任何现有功能，已经完成并在本地验证。第 5-6 步是不可逆的——PyPI 上的版本号发出去就不能重发同一个号，所以发版前务必确认三个 `pyproject.toml` 的版本号一致（`python scripts/update_versions.py check` 会告诉你解析出的版本）。
