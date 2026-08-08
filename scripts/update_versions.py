@@ -4,13 +4,13 @@ Bump the omnigent project version across all packages in lockstep.
 The four distributions in this repo release together at a single
 version:
 
-- ``omnigent``         — root ``pyproject.toml``
-- ``omnigent-client``  — ``sdks/python-client/pyproject.toml``
-- ``omnigent-ui-sdk``  — ``sdks/ui/pyproject.toml``
+- ``omniagent``        — root ``pyproject.toml``
+- ``omniagent-client`` — ``sdks/python-client/pyproject.toml``
+- ``omniagent-ui-sdk`` — ``sdks/ui/pyproject.toml``
 - ``omnigent-slack``   — ``integrations/slack/pyproject.toml``
 
 Each declares its own ``[project].version``. The first three ``==``-pin
-their siblings in ``[project].dependencies``; the root ``omnigent``
+their siblings in ``[project].dependencies``; the root ``omniagent``
 package also ``==``-pins ``omnigent-slack`` in the ``slack`` optional
 dependency extra — the lockstep contract that
 ``.github/workflows/release-omnigent.yml`` verifies at tag time. This
@@ -95,23 +95,23 @@ def packages(root: Path) -> list[Package]:
     """
     return [
         Package(
-            "omnigent",
+            "omniagent",
             root / "pyproject.toml",
-            ("omnigent-client", "omnigent-ui-sdk", "omnigent-slack"),
+            ("omniagent-client", "omniagent-ui-sdk", "omnigent-slack"),
         ),
         Package(
-            "omnigent-client",
+            "omniagent-client",
             root / "sdks" / "python-client" / "pyproject.toml",
-            ("omnigent",),
+            ("omniagent",),
         ),
         Package(
-            "omnigent-ui-sdk",
+            "omniagent-ui-sdk",
             root / "sdks" / "ui" / "pyproject.toml",
-            ("omnigent-client",),
+            ("omniagent-client",),
         ),
         # omnigent-slack is deliberately decoupled from omnigent core (it
         # drives the server over HTTP, never imports ``omnigent``), so it
-        # pins no siblings. The root ``omnigent`` package ``==``-pins it in
+        # pins no siblings. The root ``omniagent`` package ``==``-pins it in
         # the ``slack`` optional-dependency extra; the pin lives in
         # [project.optional-dependencies] rather than [project.dependencies],
         # so check() scans both sections for it.

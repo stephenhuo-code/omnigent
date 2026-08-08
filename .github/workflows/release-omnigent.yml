@@ -1,5 +1,5 @@
-# Build the `omnigent` release distributions (core wheel with the web
-# UI bundled in, plus the `omnigent-client` and `omnigent-ui-sdk` SDK
+# Build the `omniagent` release distributions (core wheel with the web
+# UI bundled in, plus the `omniagent-client` and `omniagent-ui-sdk` SDK
 # wheels it depends on), run the readiness gates, and publish all three to
 # (Test)PyPI via OIDC Trusted Publishing. The three version-lock together,
 # so every release publishes all three at the same version. Self-contained:
@@ -14,11 +14,11 @@
 #      the identical version to PyPI, behind the protected `pypi` env.
 #
 # One-time setup (per index, pypi.org AND test.pypi.org): Trusted Publishers
-# for all three project names pointing at omnigent-ai/omnigent +
+# for all three project names pointing at stephenhuo-code/omnigent +
 # release-omnigent.yml + the test-pypi/pypi environment (unclaimed names
 # reserved via a pending publisher); GitHub envs test-pypi (unprotected)
 # and pypi (required reviewer). Actions are SHA-pinned per repo convention.
-name: Release omnigent (PyPI)
+name: Release omniagent (PyPI)
 
 on:
   # PyPI publishing moved to the central secure-release repo; the tag-push
@@ -52,8 +52,10 @@ concurrency:
 
 jobs:
   build-and-publish:
-    # Gated to this repository; inert in forks and mirrors.
-    if: github.repository == 'omnigent-ai/omnigent'
+    # Gated to this fork; inert in other forks and mirrors. Upstream
+    # publishes the `omnigent` distributions, this repo the `omniagent`
+    # ones — running both from one repo would double-publish.
+    if: github.repository == 'stephenhuo-code/omnigent'
     runs-on: ubuntu-latest
     # Bound a hung run under GitHub's 6-hour default (real work takes minutes).
     timeout-minutes: 30
@@ -101,9 +103,9 @@ jobs:
           # Every package carries the tag's version; every cross-package
           # dep is an exact `==tag` pin (the lockstep contract).
           packages = {
-              "pyproject.toml": ("omnigent-client", "omnigent-ui-sdk"),
-              "sdks/python-client/pyproject.toml": ("omnigent",),
-              "sdks/ui/pyproject.toml": ("omnigent-client",),
+              "pyproject.toml": ("omniagent-client", "omniagent-ui-sdk"),
+              "sdks/python-client/pyproject.toml": ("omniagent",),
+              "sdks/ui/pyproject.toml": ("omniagent-client",),
           }
           errors = []
           for path, sibling_pins in packages.items():
@@ -137,7 +139,7 @@ jobs:
 
       # 5. GATE: the UI bundle must be inside the core wheel; fail loud if
       #    missing/empty. The glob matches only the core wheel (SDK wheels
-      #    are omnigent_client-* / omnigent_ui_sdk-*).
+      #    are omniagent_client-* / omniagent_ui_sdk-*).
       - name: Assert web-UI bundle shipped in the wheel
         run: |
           uv run --no-project python - <<'PY'
@@ -145,9 +147,9 @@ jobs:
           import sys
           import zipfile
 
-          whls = sorted(glob.glob("dist/omnigent-*.whl"))
+          whls = sorted(glob.glob("dist/omniagent-*.whl"))
           if not whls:
-              sys.exit("no core omnigent wheel found in dist/")
+              sys.exit("no core omniagent wheel found in dist/")
           whl = whls[-1]
           names = zipfile.ZipFile(whl).namelist()
           ui = [n for n in names if "server/static/web-ui/" in n]
@@ -162,6 +164,10 @@ jobs:
         run: |
           uv venv --python 3.12 /tmp/omnigent-smoke
           uv pip install --python /tmp/omnigent-smoke/bin/python dist/*.whl
+          # Assert all three console scripts ship: the new primary name, the
+          # short alias, and the legacy name the repo's docs/skills still use.
+          /tmp/omnigent-smoke/bin/omniagent --version
+          /tmp/omnigent-smoke/bin/omni --version
           /tmp/omnigent-smoke/bin/omnigent --version
 
       # 7. Persist the built artifacts for inspection.

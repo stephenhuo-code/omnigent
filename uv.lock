@@ -21,7 +21,7 @@ pydantic-settings = "2026-06-26T00:00:00Z"
 
 [manifest]
 members = [
-    "omnigent",
+    "omniagent",
     "omnigent-issue-prioritization",
 ]
 
@@ -3194,7 +3194,7 @@ wheels = [
 ]
 
 [[package]]
-name = "omnigent"
+name = "omniagent"
 version = "0.9.0.dev0"
 source = { editable = "." }
 dependencies = [
@@ -3212,8 +3212,8 @@ dependencies = [
     { name = "json5" },
     { name = "keyring" },
     { name = "mcp" },
-    { name = "omnigent-client" },
-    { name = "omnigent-ui-sdk" },
+    { name = "omniagent-client" },
+    { name = "omniagent-ui-sdk" },
     { name = "openai" },
     { name = "openai-agents" },
     { name = "opentelemetry-exporter-otlp-proto-grpc" },
@@ -3394,9 +3394,9 @@ requires-dist = [
     { name = "nimble-python", marker = "extra == 'dev'", specifier = ">=1.2.0,<2" },
     { name = "nimble-python", marker = "extra == 'nimble'", specifier = ">=1.2.0,<2" },
     { name = "numpy", marker = "extra == 'dictation'", specifier = ">=1.24,<3" },
-    { name = "omnigent-client", editable = "sdks/python-client" },
+    { name = "omniagent-client", editable = "sdks/python-client" },
+    { name = "omniagent-ui-sdk", editable = "sdks/ui" },
     { name = "omnigent-slack", marker = "extra == 'slack'", editable = "integrations/slack" },
-    { name = "omnigent-ui-sdk", editable = "sdks/ui" },
     { name = "openai", specifier = ">=1.0,<2.45" },
     { name = "openai-agents", specifier = ">=0.0.17" },
     { name = "openai-agents", marker = "extra == 'agents-sdk'", specifier = ">=0.1,<1" },
@@ -3450,20 +3450,39 @@ requires-dist = [
 provides-extras = ["claude-sdk", "openai-agents", "all", "bedrock", "s3", "vertex", "modal", "daytona", "boxlite", "cwsandbox", "e2b", "islo", "openshell", "kubernetes", "tracing", "agents-sdk", "antigravity", "copilot", "dictation", "cursor", "hindsight", "memory", "nimble", "slack", "databricks", "loadtest", "dev"]
 
 [[package]]
-name = "omnigent-client"
+name = "omniagent-client"
 version = "0.9.0.dev0"
 source = { editable = "sdks/python-client" }
 dependencies = [
     { name = "httpx" },
-    { name = "omnigent" },
+    { name = "omniagent" },
     { name = "pydantic" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "httpx", specifier = ">=0.27" },
-    { name = "omnigent", editable = "." },
+    { name = "omniagent", editable = "." },
     { name = "pydantic", specifier = ">=2.0,<3" },
+]
+
+[[package]]
+name = "omniagent-ui-sdk"
+version = "0.9.0.dev0"
+source = { editable = "sdks/ui" }
+dependencies = [
+    { name = "omniagent-client" },
+    { name = "prompt-toolkit" },
+    { name = "pyyaml" },
+    { name = "rich" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "omniagent-client", specifier = "==0.9.0.dev0" },
+    { name = "prompt-toolkit", specifier = ">=3" },
+    { name = "pyyaml", specifier = ">=6.0,<7" },
+    { name = "rich", specifier = ">=13" },
 ]
 
 [[package]]
@@ -3512,25 +3531,6 @@ requires-dist = [
     { name = "pydantic-settings", specifier = ">=2.10.0" },
     { name = "slack-bolt", specifier = ">=1.29.0" },
     { name = "slack-sdk", specifier = ">=3.43.0" },
-]
-
-[[package]]
-name = "omnigent-ui-sdk"
-version = "0.9.0.dev0"
-source = { editable = "sdks/ui" }
-dependencies = [
-    { name = "omnigent-client" },
-    { name = "prompt-toolkit" },
-    { name = "pyyaml" },
-    { name = "rich" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "omnigent-client", specifier = "==0.9.0.dev0" },
-    { name = "prompt-toolkit", specifier = ">=3" },
-    { name = "pyyaml", specifier = ">=6.0,<7" },
-    { name = "rich", specifier = ">=13" },
 ]
 
 [[package]]
