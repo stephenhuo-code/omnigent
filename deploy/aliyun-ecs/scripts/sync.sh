@@ -4,9 +4,13 @@
 #   ./scripts/sync.sh root@1.2.3.4
 #   OMNIGENT_REMOTE_DIR=/srv/omnigent ./scripts/sync.sh root@1.2.3.4
 #
-# The repository is the source of truth for configuration; secrets live only
-# on the box. --delete makes the remote match the repo (so a file deleted here
-# stops existing there), and --exclude .env keeps that from touching secrets.
+# Edit .env here, not over SSH — the repo's .gitignore covers .env and
+# **/.env, so a filled-in one cannot be committed by accident. It ships with
+# 0600 and lands as the box's .env.
+#
+# --delete makes the remote match the repo, so a file deleted here stops
+# existing there. That is what keeps the box reconstructible: nothing
+# survives on it that is not in version control (except .env itself).
 set -euo pipefail
 
 REMOTE="${1:-${OMNIGENT_REMOTE:-}}"
@@ -19,20 +23,24 @@ fi
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
+if [ ! -f "$HERE/.env" ]; then
+    echo "no .env here yet. Create one first:" >&2
+    echo "    cp $HERE/.env.example $HERE/.env" >&2
+    echo "    ./scripts/gen-secrets.sh          # fills the two random secrets" >&2
+    echo "    \$EDITOR $HERE/.env               # fill the rest" >&2
+    exit 1
+fi
+
 echo "==> syncing $HERE/ -> $REMOTE:$REMOTE_DIR/"
 ssh "$REMOTE" "mkdir -p '$REMOTE_DIR'"
 
 rsync -az --delete \
-    --exclude '.env' \
-    --exclude '.env.local' \
     --chmod=D755,F644 \
     "$HERE/" "$REMOTE:$REMOTE_DIR/"
 
-# rsync's --chmod applies to files it writes; the +x bit has to be restored
-# separately or deploy.sh arrives unrunnable.
-ssh "$REMOTE" "chmod +x '$REMOTE_DIR'/scripts/*.sh"
+# rsync's --chmod applies uniformly, so the +x bit on scripts and the 0600
+# on .env both have to be restored afterwards.
+ssh "$REMOTE" "chmod +x '$REMOTE_DIR'/scripts/*.sh && chmod 600 '$REMOTE_DIR'/.env"
 
 echo "==> done. next:"
-echo "    ssh $REMOTE"
-echo "    cd $REMOTE_DIR && ./scripts/bootstrap.sh   # first time only"
-echo "    ./scripts/deploy.sh"
+echo "    ssh $REMOTE 'cd $REMOTE_DIR && ./scripts/deploy.sh'"

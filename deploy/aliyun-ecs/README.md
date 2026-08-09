@@ -4,18 +4,19 @@ Runs the server on one ECS box: Postgres on a local volume, artifacts in OSS,
 a nightly database dump to OSS. Configuration lives in this directory and is
 pushed to the box over SSH, so the machine can be rebuilt from the repository.
 
-Secrets never enter the repository. `.env` exists only on the box, and
-`scripts/sync.sh` excludes it.
+`.env` 在本机编辑、随 sync 一起推上去。仓库的 `.gitignore` 覆盖了 `.env` 和
+`**/.env`，所以填好的副本进不了版本控制。
 
 ```
 你的 Mac                        ECS (华东1 杭州)                    OSS
-  repo ──sync.sh(rsync)──▶  /opt/omniagent                    artifacts/
-                             ├── docker-compose.yaml   ──写──▶  backup/
-                             ├── .env  (仅存于此)
-                             ├── postgres (本地卷)
-                             └── omnigent server :8000
-                                      ▲
-  omniagent host ───────出站 WebSocket ┘
+  deploy/aliyun-ecs/                                            artifacts/
+   ├── .env (本机编辑)                                              ▲
+   └── 其余配置        ──sync.sh(rsync)──▶  /opt/omniagent ────写───┤
+                                            ├── postgres (本地卷)   │
+                                            │      └─每日 pg_dump──▶ backup/
+                                            └── omnigent server :8000
+                                                     ▲
+  omniagent host ────────────────出站 WebSocket ──────┘
 ```
 
 ## 为什么数据库不放 OSS
@@ -106,17 +107,24 @@ ossutil config
 
 ## 部署
 
-```bash
-# 本机
-./scripts/sync.sh root@<ECS IP>
+配置在**本机**填好再推上去，不用 ssh 进去编辑：
 
-# ECS 上
-cd /opt/omniagent
-./scripts/bootstrap.sh              # 生成密钥，建 .env 骨架
-vi .env                             # 填镜像地址、BASE_URL、管理员密码、AccessKey
-docker login <与 OMNIGENT_IMAGE 相同的主机名> -u <账号名>
-./scripts/deploy.sh
+```bash
+# 本机，在 deploy/aliyun-ecs/ 下
+./scripts/gen-secrets.sh            # 建 .env，填好两个随机密钥
+$EDITOR .env                        # 填镜像地址、IP、管理员密码、OSS 密钥
+./scripts/sync.sh root@<ECS IP>     # 连同 .env 一起推上去
+
+# ECS 上，只需两条
+ssh root@<ECS IP>
+docker login <与 OMNIGENT_IMAGE 相同的主机名> -u <阿里云账号名>   # 一次性
+cd /opt/omniagent && ./scripts/deploy.sh
 ```
+
+`.env` 被仓库的 `.gitignore` 覆盖（`.env` 和 `**/.env` 两条），填好的副本不会被
+误提交，所以放在本机编辑是安全的。`gen-secrets.sh` 只填空值，重复执行不会改写
+已有密钥——轮换 cookie secret 会让所有人重新登录，轮换 Postgres 密码会让已有
+数据卷对不上凭据。
 
 `deploy.sh` 会等到 `/health` 真的返回才算成功，否则打印最近 50 行日志并非零退出。
 
@@ -130,8 +138,9 @@ docker compose logs -f omnigent
 docker compose ps
 ```
 
-改配置的正确姿势是**改仓库里的文件再 sync**，不要直接在服务器上编辑——那样
-下次 sync 会被 `--delete` 覆盖掉，环境也不再可复现。`.env` 是唯一的例外。
+改配置的正确姿势是**在本机改再 sync**，包括 `.env`。不要直接在服务器上编辑——
+下次 sync 会用 `--delete` 把它覆盖掉，而且那份改动没进版本控制，环境就不再可
+复现了。
 
 ## 备份
 
@@ -184,9 +193,9 @@ systemctl list-timers | grep omnigent
 `AWS_ENDPOINT_URL_S3` 和 `AWS_REGION` 与 bucket 实际地域一致。仍不行就先清空
 `OMNIGENT_ARTIFACT_URI` 让业务跑起来，再单独排查。
 
-**`docker pull` 报 `pull access denied`** — 登录的主机名和拉取的主机名不一致。
-Docker 凭据按主机名分别存储，公网地址和 `-vpc` 内网地址是两个不同的主机名，
-用哪个拉就得登录哪个。
+**`docker pull` 报 `pull access denied`** — 登录的主机名和 `OMNIGENT_IMAGE` 里
+的主机名不一致。Docker 凭据按主机名分别存储，ACR 的公网地址和 `-vpc` 内网地址
+是两个不同的主机名（同一个仓库），用哪个拉就得登录哪个。
 
 **公网访问超时但 ECS 上 `curl localhost:8000/health` 正常** — 安全组没放行，
 或者来源 IP 限制里写的还是你上一个出口 IP。
