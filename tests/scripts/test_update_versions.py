@@ -59,9 +59,10 @@ def test_set_version_rewrites_every_location(repo_copy: Path) -> None:
     changed = update_versions.set_version(repo_copy, "9.9.9")
     # Four pyprojects, omnigent/version.py, and the desktop package.json.
     assert len(changed) == 6
-    # root: version line + three sibling pins (client, ui-sdk, slack);
-    # client/ui SDKs: version line + one pin; slack: version line only.
-    assert (repo_copy / "pyproject.toml").read_text().count("9.9.9") == 4
+    # root: version line + the slack pin (the SDK packages ship inside the
+    # root wheel, so it depends on neither); client/ui SDKs: version line +
+    # one pin; slack: version line only.
+    assert (repo_copy / "pyproject.toml").read_text().count("9.9.9") == 2
     assert (repo_copy / "sdks/python-client/pyproject.toml").read_text().count("9.9.9") == 2
     assert (repo_copy / "sdks/ui/pyproject.toml").read_text().count("9.9.9") == 2
     assert (repo_copy / "integrations/slack/pyproject.toml").read_text().count("9.9.9") == 1

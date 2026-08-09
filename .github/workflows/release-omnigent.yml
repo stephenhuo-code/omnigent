@@ -1,10 +1,11 @@
-# Build the `omniagentkit` release distributions (core wheel with the web
-# UI bundled in, plus the `omniagentkit-client` and `omniagentkit-ui-sdk` SDK
-# wheels it depends on), run the readiness gates, and publish all three to
-# (Test)PyPI via OIDC Trusted Publishing. The three version-lock together,
-# so every release publishes all three at the same version. Self-contained:
-# publishes straight from this repo on `ubuntu-latest` for clean public
-# PyPI/npm access (never a mirror/proxy).
+# Build the `omniagentkit` release distribution — one wheel carrying the
+# web UI, the client SDK, and the UI SDK — run the readiness gates, and
+# publish it to (Test)PyPI via OIDC Trusted Publishing. Upstream ships the
+# SDKs as their own distributions; here they ride along, because PyPI
+# allows only one pending trusted publisher per (owner, repo, workflow,
+# environment) and three separate projects would need three identical
+# ones. Self-contained: publishes straight from this repo on
+# `ubuntu-latest` for clean public PyPI/npm access (never a mirror/proxy).
 #
 # Release flow:
 #   1. Push a version tag (vX.Y.Z / vX.Y.ZrcN) -> build + gate + publish to
@@ -13,11 +14,12 @@
 #   3. Manually dispatch ON THE SAME TAG with destination=pypi -> publish
 #      the identical version to PyPI, behind the protected `pypi` env.
 #
-# One-time setup (per index, pypi.org AND test.pypi.org): Trusted Publishers
-# for all three project names pointing at stephenhuo-code/omnigent +
-# release-omnigent.yml + the test-pypi/pypi environment (unclaimed names
-# reserved via a pending publisher); GitHub envs test-pypi (unprotected)
-# and pypi (required reviewer). Actions are SHA-pinned per repo convention.
+# One-time setup (per index, pypi.org AND test.pypi.org): one Trusted
+# Publisher for `omniagentkit` pointing at stephenhuo-code/omnigent +
+# release-omnigent.yml + the test-pypi/pypi environment (the name is
+# reserved via a pending publisher until the first release); GitHub envs
+# test-pypi (unprotected) and pypi (required reviewer). Actions are
+# SHA-pinned per repo convention.
 name: Release omniagentkit (PyPI)
 
 on:
@@ -89,9 +91,9 @@ jobs:
           pnpm install --frozen-lockfile --filter web
           pnpm --filter web run build # Vite outDir -> omnigent/server/static/web-ui
 
-      # 2. Tag-driven: the tag must match the version in all three pyprojects
-      #    and the core package's `==` sibling-SDK pins, so the lockstep
-      #    contract holds. Skipped on a non-tag ref (nothing to compare).
+      # 2. Tag-driven: the tag must match the version in every pyproject and
+      #    the surviving `==` sibling pins, so the lockstep contract holds.
+      #    Skipped on a non-tag ref (nothing to compare).
       - name: Verify tag matches package versions
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
@@ -100,10 +102,12 @@ jobs:
           import tomllib
 
           tag = sys.argv[1]
-          # Every package carries the tag's version; every cross-package
-          # dep is an exact `==tag` pin (the lockstep contract).
+          # Only the root is published — the SDK packages ship inside its
+          # wheel — but their pyprojects are stamped in lockstep, so a stale
+          # one would silently ship the wrong __version__. Check all three;
+          # the root no longer pins the SDKs, so it declares no siblings.
           packages = {
-              "pyproject.toml": ("omniagentkit-client", "omniagentkit-ui-sdk"),
+              "pyproject.toml": (),
               "sdks/python-client/pyproject.toml": ("omniagentkit",),
               "sdks/ui/pyproject.toml": ("omniagentkit-client",),
           }
@@ -124,22 +128,19 @@ jobs:
               sys.exit(1)
           PY
 
-      # 3. Build sdist + wheel for all three into one dist/. The SDKs are
-      #    path-deps (not a uv workspace), so each needs its own build.
-      - name: Build sdists + wheels
+      # 3. Build the sdist + wheel. One distribution: the SDK packages are
+      #    discovered from sdks/ and ship inside this wheel.
+      - name: Build sdist + wheel
         run: |
           uv build --out-dir dist
-          uv build sdks/python-client --out-dir dist
-          uv build sdks/ui --out-dir dist
           ls -la dist/
 
       # 4. Metadata sanity check (long-description renders, fields valid).
       - name: twine check
         run: uvx twine check dist/*
 
-      # 5. GATE: the UI bundle must be inside the core wheel; fail loud if
-      #    missing/empty. The glob matches only the core wheel (SDK wheels
-      #    are omniagentkit_client-* / omniagentkit_ui_sdk-*).
+      # 5. GATE: the UI bundle must be inside the wheel; fail loud if
+      #    missing/empty.
       - name: Assert web-UI bundle shipped in the wheel
         run: |
           uv run --no-project python - <<'PY'

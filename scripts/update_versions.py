@@ -1,21 +1,23 @@
 """
 Bump the omnigent project version across all packages in lockstep.
 
-The four distributions in this repo release together at a single
-version:
+The four pyprojects in this repo carry a single version:
 
 - ``omniagentkit``        — root ``pyproject.toml``
 - ``omniagentkit-client`` — ``sdks/python-client/pyproject.toml``
 - ``omniagentkit-ui-sdk`` — ``sdks/ui/pyproject.toml``
-- ``omnigent-slack``   — ``integrations/slack/pyproject.toml``
+- ``omnigent-slack``      — ``integrations/slack/pyproject.toml``
 
-Each declares its own ``[project].version``. The first three ``==``-pin
-their siblings in ``[project].dependencies``; the root ``omniagentkit``
-package also ``==``-pins ``omnigent-slack`` in the ``slack`` optional
-dependency extra — the lockstep contract that
-``.github/workflows/release-omnigent.yml`` verifies at tag time. This
-script rewrites every one of those locations at once so they never
-drift.
+Only the root is published: the two SDK packages ship inside its wheel
+(see the root's ``tool.setuptools.packages.find``). Their pyprojects are
+still stamped so a standalone build of either is never left behind.
+
+Each declares its own ``[project].version``. The SDKs ``==``-pin their
+siblings in ``[project].dependencies``; the root ``==``-pins
+``omnigent-slack`` in the ``slack`` optional dependency extra — the
+lockstep contract that ``.github/workflows/release-omnigent.yml``
+verifies at tag time. This script rewrites every one of those locations
+at once so they never drift.
 
 It edits ONLY the ``[project].version`` line and the sibling ``==``
 pins, matched by package name — never a blind version-string replace —
@@ -94,10 +96,14 @@ def packages(root: Path) -> list[Package]:
     :returns: The four :class:`Package` entries.
     """
     return [
+        # The client and UI SDK packages ship inside the root wheel, so the
+        # root declares no dependency on them — only the slack extra's pin
+        # survives. Their pyprojects stay version-stamped anyway so a
+        # standalone build of either is never left behind.
         Package(
             "omniagentkit",
             root / "pyproject.toml",
-            ("omniagentkit-client", "omniagentkit-ui-sdk", "omnigent-slack"),
+            ("omnigent-slack",),
         ),
         Package(
             "omniagentkit-client",

@@ -24,12 +24,12 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
-    # SDK path-deps, version-locked: the three packages release together at
-    # one version, so a published `omniagentkit==X` must resolve the SDK wheels
-    # built alongside it (release-omnigent.yml verifies these pins match the
-    # release tag). Local/editable installs still resolve via tool.uv.sources.
-    "omniagentkit-client==0.9.0.dev0",
-    "omniagentkit-ui-sdk==0.9.0.dev0",
+    # The client and UI SDKs are not separate distributions here — their
+    # packages ship inside this wheel (see tool.setuptools.packages.find),
+    # so there is nothing to depend on. Upstream publishes them separately
+    # for consumers who want the client without the server; this fork has
+    # no such consumer, and one distribution needs one PyPI trusted
+    # publisher instead of three that collide on an identical config.
     # Merged from omnigent + omnigent.
     "pyyaml>=6.0,<7",
     # OpenClaw stores its wrapped acpx registry as JSON5.
@@ -365,8 +365,6 @@ members = [".github/triage_v2"]
 
 # uv path-deps for the sibling SDK packages (renamed in Stage 3).
 [tool.uv.sources]
-omniagentkit-client = { path = "sdks/python-client", editable = true }
-omniagentkit-ui-sdk = { path = "sdks/ui", editable = true }
 # Local resolution for the `slack` extra. Only pulled in when `omnigent[slack]`
 # is requested (the extra is opt-in), so a default install never builds it.
 omnigent-slack = { path = "integrations/slack", editable = true }
@@ -375,7 +373,10 @@ omnigent-slack = { path = "integrations/slack", editable = true }
 include-package-data = true
 
 [tool.setuptools.packages.find]
-where = ["."]
+# The SDK roots are searched alongside the repo root so `omnigent_client`
+# and `omnigent_ui_sdk` ship inside this wheel rather than as separate
+# distributions.
+where = [".", "sdks/python-client", "sdks/ui"]
 # Discovers the `omnigent` package (including `omnigent.inner.*` and
 # all omnigent subpackages absorbed during unification).
 include = ["omnigent*"]
