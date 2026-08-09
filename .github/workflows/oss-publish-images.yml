@@ -6,6 +6,12 @@
 # the repository owner. Dockerfile ARGs default to public registries, so no
 # build-args needed.
 #
+# When ACR_REGISTRY / ACR_NAMESPACE are set, the server and host images are
+# ALSO pushed to that Aliyun registry in the same build — buildx writes every
+# tag from one build, so mirroring costs no extra time. The deploy box pulls
+# from there over the VPC; ghcr from mainland China is too slow to hang an
+# unattended deploy on.
+#
 # Tag scheme:
 #   :sha-<short>    immutable per-commit pin, published on EVERY qualifying build.
 #   :vX.Y.Z[rcN]    immutable version pin, published for every release + pre-release tag.
@@ -100,6 +106,18 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # Optional second registry. Pulling ghcr from a mainland-China ECS box is
+      # slow enough to make unattended deploys unreliable; an Aliyun ACR copy in
+      # the deploy region is pulled over the VPC instead. Skipped entirely when
+      # the vars are unset, so a fork without ACR still publishes to ghcr.
+      - name: Log in to Aliyun ACR
+        if: vars.ACR_REGISTRY != '' && vars.ACR_NAMESPACE != ''
+        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee  # v4.2.0
+        with:
+          registry: ${{ vars.ACR_REGISTRY }}
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+
       # Compute the tag set for this event. ref / ref_name go through env (not
       # inline ${{ }}) so a crafted tag name can't inject shell.
       - name: Compute image tags
@@ -110,6 +128,8 @@ jobs:
           GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BUMP_LATEST: ${{ inputs.bump_latest }}
+          ACR_REGISTRY: ${{ vars.ACR_REGISTRY }}
+          ACR_NAMESPACE: ${{ vars.ACR_NAMESPACE }}
         run: |
           set -euo pipefail
           # Namespace follows the repo owner (ghcr requires it lowercase, which
@@ -121,11 +141,25 @@ jobs:
           KUBERNETES_IMAGE="ghcr.io/${OWNER}/omnigent-server-kubernetes"
           SHORT_SHA=$(git rev-parse --short HEAD)
 
+          # Mirror only what a deploy pulls — server and host. The openshell and
+          # kubernetes variants stay on ghcr alone; nothing here deploys them,
+          # and ACR's personal tier has a repository quota worth conserving.
+          ACR_IMAGE=""
+          ACR_HOST_IMAGE=""
+          if [ -n "${ACR_REGISTRY:-}" ] && [ -n "${ACR_NAMESPACE:-}" ]; then
+            ACR_IMAGE="${ACR_REGISTRY}/${ACR_NAMESPACE}/omnigent-server"
+            ACR_HOST_IMAGE="${ACR_REGISTRY}/${ACR_NAMESPACE}/omnigent-host"
+          fi
+
           # Immutable per-commit pin, always.
           TAGS="${IMAGE}:sha-${SHORT_SHA}"
           HOST_TAGS="${HOST_IMAGE}:sha-${SHORT_SHA}"
           OPENSHELL_TAGS="${OPENSHELL_IMAGE}:sha-${SHORT_SHA}"
           KUBERNETES_TAGS="${KUBERNETES_IMAGE}:sha-${SHORT_SHA}"
+          if [ -n "${ACR_IMAGE}" ]; then
+            TAGS="${TAGS},${ACR_IMAGE}:sha-${SHORT_SHA}"
+            HOST_TAGS="${HOST_TAGS},${ACR_HOST_IMAGE}:sha-${SHORT_SHA}"
+          fi
 
           # Append a floating/version tag to all images.
           add_tag() {
@@ -133,6 +167,10 @@ jobs:
             HOST_TAGS="${HOST_TAGS},${HOST_IMAGE}:$1"
             OPENSHELL_TAGS="${OPENSHELL_TAGS},${OPENSHELL_IMAGE}:$1"
             KUBERNETES_TAGS="${KUBERNETES_TAGS},${KUBERNETES_IMAGE}:$1"
+            if [ -n "${ACR_IMAGE}" ]; then
+              TAGS="${TAGS},${ACR_IMAGE}:$1"
+              HOST_TAGS="${HOST_TAGS},${ACR_HOST_IMAGE}:$1"
+            fi
           }
 
           # Dev channel: a push to main. Moves :main so a deploy can track
