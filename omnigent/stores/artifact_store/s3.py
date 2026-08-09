@@ -13,6 +13,9 @@ Credentials and the endpoint come from the standard AWS environment that
   non-AWS provider, e.g. ``https://<account>.r2.cloudflarestorage.com`` for
   Cloudflare R2. Leave unset for AWS S3.
 - ``AWS_REGION`` / ``AWS_DEFAULT_REGION`` — region (R2 uses ``auto``).
+- ``AWS_S3_ADDRESSING_STYLE`` — ``auto`` (default), ``virtual``, or ``path``.
+  Aliyun OSS serves only virtual-hosted style and rejects the path form;
+  MinIO commonly needs ``path``. AWS and R2 work on the default.
 
 Storage location format::
 
@@ -118,11 +121,20 @@ def _make_client() -> Any:
 
     endpoint = os.environ.get("AWS_ENDPOINT_URL_S3") or os.environ.get("AWS_ENDPOINT_URL")
     region = os.environ.get("AWS_REGION") or os.environ.get("AWS_DEFAULT_REGION") or "auto"
+    # Providers disagree on how the bucket is addressed, and boto3 guesses
+    # path-style once a custom endpoint is set. Aliyun OSS rejects that with
+    # "SecondLevelDomainForbidden: Please use virtual hosted style"; MinIO
+    # usually wants the opposite. Left at "auto" this matches boto3's own
+    # default, so AWS and R2 are unaffected.
+    addressing = os.environ.get("AWS_S3_ADDRESSING_STYLE") or "auto"
     return boto3.client(
         "s3",
         endpoint_url=endpoint or None,
         region_name=region,
-        config=Config(signature_version="s3v4"),
+        config=Config(
+            signature_version="s3v4",
+            s3={"addressing_style": addressing},
+        ),
     )
 
 

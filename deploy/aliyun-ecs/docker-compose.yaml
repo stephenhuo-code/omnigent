@@ -53,6 +53,9 @@ services:
       OMNIGENT_ARTIFACT_URI: ${OMNIGENT_ARTIFACT_URI:-}
       AWS_ENDPOINT_URL_S3: ${AWS_ENDPOINT_URL_S3:-}
       AWS_REGION: ${AWS_REGION:-}
+      # OSS serves only virtual-hosted style; boto3 would otherwise pick
+      # path-style for a custom endpoint and get SecondLevelDomainForbidden.
+      AWS_S3_ADDRESSING_STYLE: ${AWS_S3_ADDRESSING_STYLE:-virtual}
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
 
