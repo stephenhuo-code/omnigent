@@ -29,8 +29,8 @@
 │           ▼                   ▼                   ▼                 │
 │   ghcr.io/stephenhuo-code   GitHub Releases    pypi.org             │
 │     omnigent-server           Omnigent-*.dmg     omniagentkit       │
-│       :main :sha-xxx (dev)    Omnigent-*.exe     omniagentkit-client│
-│       :v0.9.0 :latest (rel)   *.AppImage         omniagentkit-ui-sdk│
+│       :main :sha-xxx (dev)    Omnigent-*.exe     （单一分发包，内含  │
+│       :v0.9.0 :latest (rel)   *.AppImage          两个 SDK 包）      │
 │     omnigent-host                                                   │
 └───────────┬───────────────────────┬───────────────────┬─────────────┘
             │ docker pull           │ 浏览器下载        │ uv tool install
@@ -98,11 +98,29 @@ server 镜像里虽然有 `host` 子命令，但缺 git/node/CLI，跑不动实�
 
 | 层 | 现在 | 改成 | 说明 |
 |---|---|---|---|
-| **分发名**（`pip install` 用） | `omnigent` | `omniagentkit` | 三个包统一改 |
-| | `omnigent-client` | `omniagentkit-client` | |
-| | `omnigent-ui-sdk` | `omniagentkit-ui-sdk` | |
+| **分发名**（`pip install` 用） | `omnigent` + 两个 SDK 包 | `omniagentkit` **一个包** | 见下方「只发一个包」 |
 | **命令名**（终端里敲） | `omnigent` / `omni` | `omniagent` / `omni` / `omnigent` | 见下方 |
 | **导入名**（`import` 用） | `omnigent` | **不改** | 目录名和所有 `import omnigent` 保持原样 |
+
+### 只发一个包
+
+上游把 `omnigent_client` 和 `omnigent_ui_sdk` 做成独立分发包，是为了让人能只装 client 而不装 server。这个 fork 没有这类使用者，而拆成三个包在 PyPI 上会撞一堵墙：
+
+**PyPI 对每个 `(Owner, Repository, Workflow, Environment)` 四元组只允许一个待创建的信任规则。** 三个包从同一个 workflow 发布，配置完全相同，注册第二条时就会报：
+
+```
+A pending trusted publisher matching this configuration
+has already been registered for a different project name.
+```
+
+绕开它要么把发布 job 拆成三个各用不同 environment，要么分三轮发布——都不值得。所以两个 SDK 的包目录直接并进主 wheel：
+
+```toml
+[tool.setuptools.packages.find]
+where = [".", "sdks/python-client", "sdks/ui"]
+```
+
+装一个 `omniagentkit`，`omnigent`、`omnigent_client`、`omnigent_ui_sdk` 三个导入包全都到位。两个 SDK 的 `pyproject.toml` 保留并继续跟随版本，所以将来想拆回去或单独构建都还可以。
 
 导入名坚决不动：改它要重命名目录并修改上千处 import，且每次合并上游必然大面积冲突，而这一层对使用者完全不可见。
 
@@ -142,13 +160,19 @@ ghcr 镜像保持 `omnigent-server` / `omnigent-host`。命名空间 `stephenhuo
 
 ### 版本
 
-三个包**版本锁死联动**——`release-omnigent.yml` 的校验脚本强制要求三者版本都等于 tag，且交叉依赖是精确 `==tag` 的 pin。发版前必须同步改三个 `pyproject.toml`：
+虽然只发一个包，仓库里四个 `pyproject.toml` 仍**版本锁死联动**——`release-omnigent.yml` 的校验脚本要求它们的版本都等于 tag，两个 SDK 之间的交叉 pin 也必须是精确 `==tag`。这样将来单独构建某个 SDK 时不会拿到过期版本。
 
+用脚本一次改齐，别手工改：
+
+```bash
+U="uv run --no-project --with packaging python scripts/update_versions.py"
+$U pre-release --new-version 0.9.0    # 发版前：把版本钉到 0.9.0
+$U check --expect 0.9.0               # 校验四个包一致
+# 发版后：把主干推进到下一个 .dev0
+$U post-release --new-version 0.9.0
 ```
-pyproject.toml                    version = "0.9.0"  + 依赖 omniagentkit-client==0.9.0, omniagentkit-ui-sdk==0.9.0
-sdks/python-client/pyproject.toml version = "0.9.0"  + 依赖 omniagentkit==0.9.0
-sdks/ui/pyproject.toml            version = "0.9.0"  + 依赖 omniagentkit-client==0.9.0
-```
+
+它会同时更新四个 `pyproject.toml`、`omnigent/version.py` 的 `VERSION` 常量，以及桌面端 `package.json` 的 semver。
 
 当前是 `0.9.0.dev0`，首个正式版为 `v0.9.0`。
 
@@ -161,14 +185,14 @@ sdks/ui/pyproject.toml            version = "0.9.0"  + 依赖 omniagentkit-clien
 | | dev 通道 | release 通道 |
 |---|---|---|
 | 触发 | push 到 `main` | 打 `v*` tag |
-| 镜像标签 | `:main`、`:sha-abc1234`、`:latest-nightly` | `:v0.9.0`、`:latest`、`:latest-rc` |
+| 镜像标签 | `:main`、`:sha-abc1234` | `:v0.9.0`、`:latest`、`:latest-rc` |
 | 构建范围 | 只 server + host，只 amd64 | 全部 4 个镜像，amd64 + arm64 |
 | 桌面端 | 不自动构建（手动指定 ref 触发） | 自动构建三平台，传 Releases |
-| PyPI | 不发布 | 发布三个包 |
+| PyPI | 不发布 | 发布 `omniagentkit` |
 | 单次耗时 | ~10-15 分钟 | ~40-60 分钟 |
 | ECS 用哪个 | 想尝鲜时临时切 `:main` | 常态跑 `:latest` |
 
-**dev 通道为什么收窄。** 上游把 per-commit 构建改成了每日定时（`oss-publish-images.yml` 注释：*Per-commit main builds were retired in favour of the nightly rebuild*），原因是 4 镜像 × 2 架构太慢。这里恢复 per-commit 但只构建实际会用到的部分：ECS 是 x86，所以 amd64 足够；本地 Mac 的 host 是 wheel 装的原生进程，不用镜像，所以 dev 通道不需要 arm64。
+**dev 通道为什么收窄。** 上游把 per-commit 构建改成了每日定时（`oss-publish-images.yml` 注释：*Per-commit main builds were retired in favour of the nightly rebuild*），原因是 4 镜像 × 2 架构太慢。这里恢复 per-commit 但只构建实际会用到的部分：ECS 是 x86，所以 amd64 足够；本地 Mac 的 host 是 wheel 装的原生进程，不用镜像，所以 dev 通道不需要 arm64。定时构建则整个删掉了——push 已经会构建，定时只是在重复构建同一份代码；需要拉基础镜像补丁时手动触发一次即可。
 
 **桌面端 dev 通道为什么不自动构建。** macOS runner 单价是 Linux 的 10 倍，每次 push 构建三平台会快速烧掉 CI 额度。需要验证时从 Actions 页面手动触发并指定 ref 即可。
 
@@ -177,8 +201,8 @@ sdks/ui/pyproject.toml            version = "0.9.0"  + 依赖 omniagentkit-clien
 | # | 文件 | 改动 |
 |---|---|---|
 | 1 | `pyproject.toml` | 分发名 → `omniagentkit`；两个交叉 pin 改名；`[project.scripts]` 加 `omniagent` 入口；`[tool.uv.sources]` 键改名 |
-| 2 | `sdks/python-client/pyproject.toml` | 分发名 → `omniagentkit-client`；对主包的 pin 与 uv 源键改名；显式声明 wheel 包目录 |
-| 3 | `sdks/ui/pyproject.toml` | 分发名 → `omniagentkit-ui-sdk`；对 client 的 pin 改名；显式声明 wheel 包目录 |
+| 2 | `sdks/python-client/pyproject.toml` | 分发名 → `omniagentkit-client`（不发布，仅供单独构建）；显式声明 wheel 包目录 |
+| 3 | `sdks/ui/pyproject.toml` | 分发名 → `omniagentkit-ui-sdk`（同上）；显式声明 wheel 包目录 |
 | 4 | `scripts/update_versions.py` | 版本联动脚本里的包名表同步改名 |
 | 5 | `.github/workflows/release-omnigent.yml` | 校验脚本 `packages` 字典改名；仓库门禁改本 fork；核心 wheel 的 glob 改名；冒烟测试断言三个命令 |
 | 6 | `.github/workflows/oss-publish-images.yml` | 镜像名参数化（含 SBOM 与 reconcile）；加 `push: branches:[main]`；dev 通道收窄；仓库门禁改本 fork |
@@ -267,18 +291,30 @@ matrix:
 
 现有 workflow 用的是 **OIDC Trusted Publishing**——不用生成 API token 存 Secrets，而是在 PyPI 上登记一条信任规则，GitHub 与 PyPI 之间靠短期令牌握手。比 token 安全，也少一份要轮换的密钥。
 
-1. 注册 pypi.org 账号并**开启 2FA**（发布包强制要求）
-2. Publishing → Add a pending publisher，对三个包各做一遍：
+**pypi.org 和 test.pypi.org 是两个独立站点**，账号、2FA、信任规则都要各配一遍，共 2 条规则。
+
+1. 两个站点各注册账号并**开启 2FA**（发布包强制要求）
+
+2. https://pypi.org/manage/account/publishing/ → Add a pending publisher → GitHub 标签页：
 
    ```
-   PyPI Project Name:  omniagentkit          （另两次：omniagentkit-client / omniagentkit-ui-sdk）
+   PyPI Project Name:  omniagentkit
    Owner:              stephenhuo-code
-   Repository name:    omnigent
-   Workflow name:      release-omnigent.yml
+   Repository name:    omnigent            ← 仓库名，不是包名
+   Workflow name:      release-omnigent.yml ← 文件名，不是 workflow 的 name 字段
    Environment name:   pypi
    ```
 
-3. GitHub 仓库 Settings → Environments → 新建名为 `pypi` 的环境
+3. https://test.pypi.org/manage/account/publishing/ → 同样一条，**只有最后一项改成** `test-pypi`
+
+4. GitHub 仓库 Settings → Environments → 建两个：
+
+   | 名字 | 保护规则 |
+   |---|---|
+   | `test-pypi` | 不设 |
+   | `pypi` | 勾 Required reviewers，加自己 |
+
+   名字必须和 PyPI 上填的完全一致。`pypi` 加审批是防手滑——PyPI 上版本号发出去就不能重发。
 
 ### 4.2 ghcr 包可见性
 
@@ -597,7 +633,7 @@ Electron 的缓存、Cookie、窗口设置都在这里。和 `~/.omnigent/`（ho
 ### 8.1 发布正式版
 
 ```bash
-# 1. 三个 pyproject.toml 的 version 同步改成 0.9.0，交叉 pin 也改成 ==0.9.0
+# 1. 用 update_versions.py pre-release 把四个 pyproject 的版本钉到 0.9.0
 # 2. 提交、推送
 git commit -am "release: v0.9.0"
 git push
@@ -721,7 +757,7 @@ workflow 的 job 缺 `packages: write` 权限，或镜像命名空间与仓库 o
    待线上验证：随第 6 步 tag 一起验
 5. ⬜ **配置 PyPI 可信发布**（PyPI 网站 + GitHub Environment）
 6. ⬜ **发首个正式版** `v0.9.0`
-   验证：ghcr 有 `:v0.9.0` 和 `:latest`；Releases 有三平台安装包；PyPI 有三个包
+   验证：ghcr 有 `:v0.9.0` 和 `:latest`；Releases 有三平台安装包；PyPI 有 `omniagentkit`
 7. ⬜ **部署 ECS**（第 5 节）
 8. ⬜ **本地起 host + 装桌面端**（第 6、7 节），跑完第 9 节的验证清单
 
