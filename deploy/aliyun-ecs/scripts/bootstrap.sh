@@ -32,7 +32,7 @@ cat <<'EOF'
 
 Still to fill in by hand (open .env in an editor):
 
-  OMNIGENT_IMAGE                        ACR VPC address for omnigent-server
+  OMNIGENT_IMAGE                        ACR address for omnigent-server
   OMNIGENT_ACCOUNTS_BASE_URL            http://<this box's public IP>:8000
   OMNIGENT_ACCOUNTS_INIT_ADMIN_PASSWORD a strong password for the `admin` user
   AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY   the OSS RAM user's key
@@ -42,7 +42,7 @@ Still to fill in by hand (open .env in an editor):
 Then authenticate to the registry once (credentials persist in
 ~/.docker/config.json, so deploys afterwards need no password):
 
-  docker login <ACR VPC host> -u <aliyun account name>
+  docker login <the same host as OMNIGENT_IMAGE> -u <aliyun account name>
 
 Then: ./scripts/deploy.sh
 EOF

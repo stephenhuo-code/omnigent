@@ -114,7 +114,7 @@ ossutil config
 cd /opt/omniagent
 ./scripts/bootstrap.sh              # 生成密钥，建 .env 骨架
 vi .env                             # 填镜像地址、BASE_URL、管理员密码、AccessKey
-docker login <ACR VPC 地址> -u <账号名>
+docker login <与 OMNIGENT_IMAGE 相同的主机名> -u <账号名>
 ./scripts/deploy.sh
 ```
 
