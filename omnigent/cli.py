@@ -4733,7 +4733,8 @@ def _upgrade_to_nightly(
                 "the nightly manually:\n\n"
                 f"    uv pip install --force-reinstall '{manual}'\n"
                 "    # or, if you need extras:\n"
-                f"    uv pip install --force-reinstall '{manual}#egg=omniagentkit[your,extras,here]'"
+                "    uv pip install --force-reinstall "
+                f"'{manual}#egg=omniagentkit[your,extras,here]'"
             )
             raise SystemExit(0)
 

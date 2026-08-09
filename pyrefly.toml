@@ -8,7 +8,11 @@ project-excludes = []
 
 python-version = "3.12"
 
-search-path = ["."]
+# The SDK packages ship inside the root wheel rather than as their own
+# distributions, so the only thing that resolves them in the environment is
+# the editable install's __path_hook__ — which pyrefly cannot traverse.
+# Point it at the source directories instead.
+search-path = [".", "sdks/python-client", "sdks/ui"]
 
 disable-search-path-heuristics = true
 
