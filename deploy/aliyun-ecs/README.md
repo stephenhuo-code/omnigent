@@ -75,10 +75,25 @@ systemctl enable --now docker
 docker compose version          # 必须有 compose 插件
 
 # ossutil，备份脚本依赖
-curl -o /usr/local/bin/ossutil https://gosspublic.alicdn.com/ossutil/1.7.19/ossutil64
+curl -fL -o /usr/local/bin/ossutil \
+  https://gosspublic.alicdn.com/ossutil/1.7.18/ossutil64
+# 下载源是个 OSS bucket，版本号写错会返回一个 XML 错误页而不是 404 的空响应。
+# 不校验就 chmod +x 的话，执行时会报 "syntax error near unexpected token"。
+file /usr/local/bin/ossutil | grep -q ELF \
+  || { echo "下载的不是二进制，检查 URL"; head -c 200 /usr/local/bin/ossutil; }
 chmod +x /usr/local/bin/ossutil
-ossutil config -e oss-cn-hangzhou-internal.aliyuncs.com \
-               -i <AccessKeyId> -k <AccessKeySecret>
+ossutil version
+```
+
+配置凭据。**用交互式的 `ossutil config` 不带参数**，密钥就不会进入
+`~/.bash_history`：
+
+```bash
+ossutil config
+#   endpoint          : oss-cn-hangzhou-internal.aliyuncs.com
+#   accessKeyID       : <粘贴>
+#   accessKeySecret   : <粘贴>
+#   stsToken          : 留空
 ```
 
 安全组入方向开 **8000，来源限定为你的出口 IP**。
