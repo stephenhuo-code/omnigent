@@ -1,0 +1,13 @@
+[Unit]
+Description=Daily Omnigent database backup
+
+[Timer]
+# 03:00 local time, jittered so several boxes never hit OSS at once.
+OnCalendar=*-*-* 03:00:00
+RandomizedDelaySec=15m
+# Runs on the next boot if the box was off at 03:00 — a machine that was
+# down overnight should still get its backup rather than skip a day.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

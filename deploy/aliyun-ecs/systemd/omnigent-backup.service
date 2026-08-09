@@ -1,0 +1,15 @@
+[Unit]
+Description=Omnigent database backup to OSS
+# Nothing to dump if the stack is not up.
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/omniagent
+ExecStart=/opt/omniagent/scripts/backup.sh
+# backup.sh exits non-zero on an empty dump, a failed upload, or a failed
+# prune, so a silent backup failure surfaces in `systemctl status` instead of
+# being discovered the day it is needed.
+StandardOutput=journal
+StandardError=journal

@@ -243,6 +243,11 @@ jobs:
           push: true
           platforms: ${{ steps.tags.outputs.platforms }}
           tags: ${{ steps.tags.outputs.tags }}
+          # boto3, for the S3 artifact store. The deploy keeps artifacts in
+          # Aliyun OSS over its S3-compatible API, and the store raises on a
+          # missing boto3 at startup — a container cannot install it later.
+          build-args: |
+            OMNIGENT_EXTRAS=s3
           cache-from: type=gha
           cache-to: type=gha,mode=max
           provenance: false

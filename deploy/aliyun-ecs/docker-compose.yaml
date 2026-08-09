@@ -1,0 +1,81 @@
+# Omnigent server on an Aliyun ECS box.
+#
+# Postgres runs beside the server on a named volume — object storage cannot
+# back a database (no fsync ordering, no file locks, no partial writes), so
+# durability comes from the nightly pg_dump in scripts/backup.sh instead.
+# Artifacts DO go to OSS: they are write-once whole files, which is what
+# object storage is for, and they grow without bound.
+#
+# No reverse proxy and no TLS yet — the server is published straight on
+# ${OMNIGENT_PORT} and the security group is what keeps it private. See
+# README.md § 接入域名 for the HTTPS story.
+name: omniagent
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-omnigent}
+      POSTGRES_USER: ${POSTGRES_USER:-omnigent}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-omnigent} -d ${POSTGRES_DB:-omnigent}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  omnigent:
+    image: ${OMNIGENT_IMAGE:?set OMNIGENT_IMAGE in .env}:${OMNIGENT_IMAGE_TAG:-main}
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-omnigent}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-omnigent}
+      HOST: 0.0.0.0
+      PORT: "8000"
+
+      # Anchors the server's data dir on the volume: the admin roster
+      # (/data/admins) and allowed-domains file live there and must survive a
+      # container rebuild. Account rows and password hashes are in Postgres.
+      OMNIGENT_ADMIN_CREDENTIALS_PATH: /data/admin-credentials
+
+      # ── Artifacts ────────────────────────────────────────
+      # With OMNIGENT_ARTIFACT_URI set to an s3:// URI the store is remote and
+      # ARTIFACT_DIR degrades to local scratch (cookie secret, on-disk cache)
+      # — still needed, hence the volume. Unset the URI to fall back to the
+      # volume entirely. Requires boto3, which the server image carries via
+      # the s3 extra (see .github/workflows/oss-publish-images.yml).
+      ARTIFACT_DIR: /data/artifacts
+      OMNIGENT_ARTIFACT_URI: ${OMNIGENT_ARTIFACT_URI:-}
+      AWS_ENDPOINT_URL_S3: ${AWS_ENDPOINT_URL_S3:-}
+      AWS_REGION: ${AWS_REGION:-}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+
+      # ── Auth ─────────────────────────────────────────────
+      # Accounts mode: username + password, owned by omnigent itself. Setting
+      # OMNIGENT_OIDC_ISSUER would switch this to an external IdP instead.
+      OMNIGENT_AUTH_ENABLED: "1"
+      OMNIGENT_ACCOUNTS_COOKIE_SECRET: ${OMNIGENT_ACCOUNTS_COOKIE_SECRET:?run scripts/bootstrap.sh}
+      # The URL a browser actually reaches, used to build invite links and to
+      # decide whether session cookies get the secure __Host- prefix.
+      OMNIGENT_ACCOUNTS_BASE_URL: ${OMNIGENT_ACCOUNTS_BASE_URL:?set OMNIGENT_ACCOUNTS_BASE_URL in .env}
+      # Seeds the `admin` user on first boot. Without it the instance sits in
+      # needs-setup and POST /auth/setup stays unauthenticated — whoever
+      # reaches it first claims the instance.
+      OMNIGENT_ACCOUNTS_INIT_ADMIN_PASSWORD: ${OMNIGENT_ACCOUNTS_INIT_ADMIN_PASSWORD:?set an admin password in .env}
+      # No display in a container, and the "open this URL" line only clutters
+      # the logs.
+      OMNIGENT_ACCOUNTS_AUTO_OPEN: "0"
+    volumes:
+      - artifact-data:/data
+    ports:
+      - "${OMNIGENT_PORT:-8000}:8000"
+
+volumes:
+  postgres-data:
+  artifact-data:
