@@ -34,12 +34,10 @@ fi
 echo "==> syncing $HERE/ -> $REMOTE:$REMOTE_DIR/"
 ssh "$REMOTE" "mkdir -p '$REMOTE_DIR'"
 
-rsync -az --delete \
-    --chmod=D755,F644 \
-    "$HERE/" "$REMOTE:$REMOTE_DIR/"
+# No --chmod: macOS ships openrsync, which rejects it. Permissions are set
+# explicitly below anyway, which is the portable thing to rely on.
+rsync -az --delete "$HERE/" "$REMOTE:$REMOTE_DIR/"
 
-# rsync's --chmod applies uniformly, so the +x bit on scripts and the 0600
-# on .env both have to be restored afterwards.
 ssh "$REMOTE" "chmod +x '$REMOTE_DIR'/scripts/*.sh && chmod 600 '$REMOTE_DIR'/.env"
 
 echo "==> done. next:"
