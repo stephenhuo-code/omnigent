@@ -75,6 +75,16 @@ curl -fsSL https://get.docker.com | sh -s -- --mirror Aliyun
 systemctl enable --now docker
 docker compose version          # 必须有 compose 插件
 
+# Docker Hub 加速器。compose 里的 postgres:16-alpine 来自 Docker Hub，境内
+# 直连会 "connection refused"；ACR 只服务自己的镜像，救不了这个。地址在
+# 控制台的「容器镜像服务 → 镜像加速器」，每个账号一个。
+mkdir -p /etc/docker
+cat > /etc/docker/daemon.json <<'JSON'
+{ "registry-mirrors": ["https://<你的ID>.mirror.aliyuncs.com"] }
+JSON
+systemctl daemon-reload && systemctl restart docker
+docker info | grep -A2 "Registry Mirrors"
+
 # ossutil，备份脚本依赖
 curl -fL -o /usr/local/bin/ossutil \
   https://gosspublic.alicdn.com/ossutil/1.7.18/ossutil64
@@ -199,6 +209,10 @@ systemctl list-timers | grep omnigent
 
 **公网访问超时但 ECS 上 `curl localhost:8000/health` 正常** — 安全组没放行，
 或者来源 IP 限制里写的还是你上一个出口 IP。
+
+**`docker pull` 报 `dial tcp ...: connection refused` 且地址是 registry-1.docker.io**
+— Docker Hub 在境内连不通。配置上面那个镜像加速器。注意 ACR 帮不上忙：它只
+服务你自己推上去的镜像，`postgres:16-alpine` 这种第三方基础镜像仍走 Docker Hub。
 
 ## 接入域名
 
