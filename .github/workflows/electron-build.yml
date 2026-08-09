@@ -80,7 +80,11 @@ jobs:
         env:
           NPM_CONFIG_REGISTRY: https://registry.npmjs.org/
         run: |-
-          pnpm install --frozen-lockfile --filter @omnigent/electron
+          # Package name, not a scope: web/electron/package.json declares
+          # `omnigent-desktop-electron`. A filter that matches nothing installs
+          # nothing, and pnpm says so only in passing — the build then fails
+          # much later with `electron-builder: not found`.
+          pnpm install --frozen-lockfile --filter omnigent-desktop-electron
           pnpm install --frozen-lockfile --filter web
 
       - name: Build ${{ matrix.platform }} app
