@@ -137,8 +137,7 @@ def _make_client() -> Any:
             addressing = raw_style
         case _:
             raise ValueError(
-                f"AWS_S3_ADDRESSING_STYLE must be 'auto', 'virtual', or 'path', "
-                f"got {raw_style!r}"
+                f"AWS_S3_ADDRESSING_STYLE must be 'auto', 'virtual', or 'path', got {raw_style!r}"
             )
 
     return boto3.client(

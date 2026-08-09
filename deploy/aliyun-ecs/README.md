@@ -210,6 +210,21 @@ systemctl list-timers | grep omnigent
 **公网访问超时但 ECS 上 `curl localhost:8000/health` 正常** — 安全组没放行，
 或者来源 IP 限制里写的还是你上一个出口 IP。
 
+**登录一直 "Login failed"** — 两种原因，日志会说明是哪种：
+
+```bash
+docker compose logs omnigent | grep -iE "admin already exists|needs_setup"
+docker compose exec postgres psql -U omnigent -d omnigent -c "select id, is_admin from users;"
+```
+
+看到 `admin already exists — ignoring the supplied password`，说明管理员在更早
+一次启动时就建好了，之后改 `.env` 里的密码**不生效**——这两个变量只在无管理员
+时读取。用户名也未必是 `admin`：默认取 `getpass.getuser()`，在容器里就是 `root`
+（所以现在 `.env` 显式钉了 `OMNIGENT_ACCOUNTS_INIT_ADMIN_USERNAME`）。
+
+`users` 表会告诉你真实的用户名。实例里没有值得保留的数据时，最快的修法是
+`docker compose down -v` 清库重建；有数据了就从 Web UI 的 Members 页面改密码。
+
 **`docker pull` 报 `dial tcp ...: connection refused` 且地址是 registry-1.docker.io**
 — Docker Hub 在境内连不通。配置上面那个镜像加速器。注意 ACR 帮不上忙：它只
 服务你自己推上去的镜像，`postgres:16-alpine` 这种第三方基础镜像仍走 Docker Hub。

@@ -67,9 +67,18 @@ services:
       # The URL a browser actually reaches, used to build invite links and to
       # decide whether session cookies get the secure __Host- prefix.
       OMNIGENT_ACCOUNTS_BASE_URL: ${OMNIGENT_ACCOUNTS_BASE_URL:?set OMNIGENT_ACCOUNTS_BASE_URL in .env}
-      # Seeds the `admin` user on first boot. Without it the instance sits in
-      # needs-setup and POST /auth/setup stays unauthenticated — whoever
-      # reaches it first claims the instance.
+      # Seeds the first admin on first boot. Without a password the instance
+      # sits in needs-setup and POST /auth/setup stays unauthenticated —
+      # whoever reaches it first claims the instance.
+      #
+      # Both apply ONLY when no admin exists yet. Once one does, bootstrap
+      # logs "admin already exists — ignoring the supplied password" and
+      # changing these does nothing; rotate from the web UI instead.
+      #
+      # The username is pinned because the default is getpass.getuser(),
+      # which inside this container is `root` — not the `admin` the login
+      # form's help text leads you to expect.
+      OMNIGENT_ACCOUNTS_INIT_ADMIN_USERNAME: ${OMNIGENT_ACCOUNTS_INIT_ADMIN_USERNAME:-admin}
       OMNIGENT_ACCOUNTS_INIT_ADMIN_PASSWORD: ${OMNIGENT_ACCOUNTS_INIT_ADMIN_PASSWORD:?set an admin password in .env}
       # No display in a container, and the "open this URL" line only clutters
       # the logs.
