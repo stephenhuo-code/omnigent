@@ -30,7 +30,7 @@ from __future__ import annotations
 
 import os
 from pathlib import PurePosixPath, PureWindowsPath
-from typing import Any
+from typing import Any, Literal
 
 from omnigent.stores.artifact_store import ArtifactStore
 
@@ -126,7 +126,21 @@ def _make_client() -> Any:
     # "SecondLevelDomainForbidden: Please use virtual hosted style"; MinIO
     # usually wants the opposite. Left at "auto" this matches boto3's own
     # default, so AWS and R2 are unaffected.
-    addressing = os.environ.get("AWS_S3_ADDRESSING_STYLE") or "auto"
+    #
+    # Validated here rather than passed through: a typo would otherwise reach
+    # boto3 and surface as a signing or routing failure well away from its
+    # cause.
+    raw_style = os.environ.get("AWS_S3_ADDRESSING_STYLE") or "auto"
+    addressing: Literal["auto", "virtual", "path"]
+    match raw_style:
+        case "auto" | "virtual" | "path":
+            addressing = raw_style
+        case _:
+            raise ValueError(
+                f"AWS_S3_ADDRESSING_STYLE must be 'auto', 'virtual', or 'path', "
+                f"got {raw_style!r}"
+            )
+
     return boto3.client(
         "s3",
         endpoint_url=endpoint or None,
