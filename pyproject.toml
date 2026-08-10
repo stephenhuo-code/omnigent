@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 # tool.setuptools.packages.find). Upstream owns `omnigent` on PyPI.
 name = "omniagentkit"
 # Keep in sync with omnigent/version.py's VERSION constant.
-version = "0.9.0rc1"
+version = "0.9.0rc2"
 description = "Omnigent: declarative agent authoring and runtime framework"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -241,7 +241,7 @@ nimble = ["nimble-python>=1.2.0,<2"]
 # (`omniagentkit-client`, `omniagentkit-ui-sdk`) and the sub-package's own
 # `[project].version` in `integrations/slack/pyproject.toml`.
 slack = [
-    "omnigent-slack==0.9.0rc1",
+    "omnigent-slack==0.9.0rc2",
 ]
 databricks = [
     # Floor matches what core code was tested against when the SDK was a
