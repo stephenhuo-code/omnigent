@@ -57,6 +57,10 @@ def _create_adapter(provider: str, **kwargs: Any) -> BaseAdapter:
         "openrouter": "https://openrouter.ai/api/v1",
         "ollama": "http://localhost:11434/v1",
         "moonshot": "https://api.moonshot.cn/v1",
+        # MiniMax speaks the Chat Completions wire format, tool calls included.
+        # Reasoning arrives inline as <think>…</think> inside `content` rather
+        # than as a separate field.
+        "minimax": "https://api.minimaxi.com/v1",
     }
 
     if provider in openai_compat_providers:
