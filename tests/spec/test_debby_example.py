@@ -82,14 +82,25 @@ def test_packaged_debby_resource_stays_in_sync_with_source_example() -> None:
     )
 
 
-def test_debby_claude_head_unchanged() -> None:
-    """The Claude head still runs on ``claude-sdk`` (the fix is GPT-only)."""
+def test_debby_deepseek_head_routes_through_a_named_provider() -> None:
+    """The second head runs on openai-agents against a named provider.
+
+    Unlike the GPT head, this one is *meant* to be on openai-agents — so the
+    guard here is the provider. Pinning nothing and naming nothing would send
+    it to the harness's unpinned-model Databricks fallback, answering as
+    something other than DeepSeek without failing.
+    """
     spec = parse(_DEBBY_DIR)
     by_name = {sub.name: sub for sub in spec.sub_agents}
 
-    assert "claude" in by_name, (
-        f"Debby should declare a 'claude' sub-agent; got {sorted(by_name)}."
+    assert "deepseek" in by_name, (
+        f"Debby should declare a 'deepseek' sub-agent; got {sorted(by_name)}."
     )
-    assert by_name["claude"].executor.harness_kind == "claude-sdk", (
-        "Debby's Claude head should remain on the 'claude-sdk' harness."
+    head = by_name["deepseek"]
+    assert head.executor.harness_kind == "openai-agents", (
+        "Debby's DeepSeek head should run on the 'openai-agents' harness."
+    )
+    assert getattr(head.executor.auth, "name", None) == "deepseek", (
+        "Debby's DeepSeek head must name the 'deepseek' provider, or an "
+        "unpinned model silently routes it to Databricks."
     )

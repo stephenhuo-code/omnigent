@@ -319,3 +319,44 @@ def test_builtin_native_provider_bridge_id_label_keys_match_constants() -> None:
         else:
             # Bare builders and claude (resolved via a runner helper) carry no key.
             assert provider.bridge_id_label_key is None, provider.key
+
+
+def test_hidden_harnesses_parses_and_ignores_blanks(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Entries are trimmed and empties dropped, so a trailing comma is harmless."""
+    monkeypatch.setenv("OMNIGENT_HIDDEN_HARNESSES", " claude-sdk , ,claude-native, ")
+    assert hp.hidden_harnesses() == frozenset({"claude-sdk", "claude-native"})
+
+
+def test_hidden_harnesses_empty_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Nothing is hidden unless a deployment asks for it."""
+    monkeypatch.delenv("OMNIGENT_HIDDEN_HARNESSES", raising=False)
+    assert hp.hidden_harnesses() == frozenset()
+
+
+def test_hidden_harness_drops_its_picker_and_catalog_rows(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The picker and the catalog both stop offering a hidden harness."""
+    monkeypatch.delenv("OMNIGENT_HIDDEN_HARNESSES", raising=False)
+    assert "claude" in {agent.key for agent in hp.native_agents()}
+    assert "claude-sdk" in {row["id"] for row in hp.harness_catalog()}
+
+    monkeypatch.setenv("OMNIGENT_HIDDEN_HARNESSES", "claude-sdk,claude-native")
+    assert "claude" not in {agent.key for agent in hp.native_agents()}
+    assert "claude-sdk" not in {row["id"] for row in hp.harness_catalog()}
+
+
+def test_hidden_harness_still_validates_in_a_handwritten_spec(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Hiding is a display filter, never a backend rejection.
+
+    A spec naming a hidden harness must keep running: operators read
+    "hidden" as cosmetic, and turning it into validation would silently
+    break every hand-written spec that names one.
+    """
+    monkeypatch.setenv("OMNIGENT_HIDDEN_HARNESSES", "claude-sdk,claude-native")
+    assert "claude-sdk" in hp.valid_harnesses()
+    assert hp.harness_aliases().get("claude") == "claude-sdk"

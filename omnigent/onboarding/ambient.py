@@ -559,6 +559,20 @@ def claude_auth_has_credential(creds_path: Path) -> bool:
     return False
 
 
+def _claude_harnesses_hidden() -> bool:
+    """Return whether every Claude harness is withheld from this deployment.
+
+    Requires both spellings to be hidden: with either still on offer there is
+    a surface a Claude subscription can serve, so detecting one is still
+    useful.
+
+    :returns: ``True`` when both Claude harnesses are hidden.
+    """
+    from omnigent.harness_plugins import hidden_harnesses
+
+    return {"claude-sdk", "claude-native"} <= hidden_harnesses()
+
+
 def _claude_login_detected() -> bool:
     """Return whether a usable Claude Code subscription login is present.
 
@@ -691,7 +705,13 @@ def detect_providers() -> list[DetectedProvider]:
     #    On macOS the credential lives in the Keychain rather than the file, so
     #    detection falls back to the CLI's own status check there. See
     #    ``_claude_login_detected`` / ``claude_auth_has_credential``.
-    if _claude_login_detected():
+    #
+    #    Skipped when the Claude harnesses are hidden: a deployment that does
+    #    not offer them has nothing to configure a subscription for, and the
+    #    check is short-circuited before ``_claude_login_detected`` so macOS
+    #    never spawns its ``claude auth status`` probe. ANTHROPIC_API_KEY is
+    #    detected above regardless, so a key still works here.
+    if not _claude_harnesses_hidden() and _claude_login_detected():
         detected.append(
             DetectedProvider(
                 name="claude",

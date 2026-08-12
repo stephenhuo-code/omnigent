@@ -83,6 +83,12 @@ services:
       # No display in a container, and the "open this URL" line only clutters
       # the logs.
       OMNIGENT_ACCOUNTS_AUTO_OPEN: "0"
+
+      # ── Offered harnesses ────────────────────────────────
+      # Comma-separated harness ids to withhold from the agent picker and the
+      # harness catalog, and to stop probing for during setup. Display only —
+      # a hand-written spec naming a hidden harness still runs.
+      OMNIGENT_HIDDEN_HARNESSES: ${OMNIGENT_HIDDEN_HARNESSES:-}
     volumes:
       - artifact-data:/data
     ports:

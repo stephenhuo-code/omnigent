@@ -747,3 +747,48 @@ def test_vertex_claude_not_detected_when_incomplete(
     for var, val in env.items():
         monkeypatch.setenv(var, val)
     assert detect_providers() == []
+
+
+def test_hidden_claude_harnesses_skip_the_subscription_probe(
+    clean_env, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Hiding both Claude harnesses short-circuits the login check.
+
+    The probe must not merely be discarded after running: on macOS
+    ``_claude_login_detected`` shells out to ``claude auth status``, so a
+    deployment that hides Claude would still pay for a subprocess on every
+    detection pass.
+    """
+    import omnigent.onboarding.ambient as ambient
+
+    def _fail() -> bool:
+        raise AssertionError("the Claude login probe ran while its harnesses were hidden")
+
+    monkeypatch.setattr(ambient, "_claude_login_detected", _fail)
+    monkeypatch.setenv("OMNIGENT_HIDDEN_HARNESSES", "claude-sdk,claude-native")
+
+    assert not any(provider.name == "claude" for provider in detect_providers())
+
+
+def test_claude_subscription_still_detected_when_not_hidden(
+    clean_env, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The guard is opt-in — default behavior keeps detecting a Claude login."""
+    import omnigent.onboarding.ambient as ambient
+
+    monkeypatch.setattr(ambient, "_claude_login_detected", lambda: True)
+    monkeypatch.delenv("OMNIGENT_HIDDEN_HARNESSES", raising=False)
+
+    assert any(provider.name == "claude" for provider in detect_providers())
+
+
+def test_one_hidden_claude_harness_still_probes(
+    clean_env, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Hiding only one spelling leaves a surface a subscription can serve."""
+    import omnigent.onboarding.ambient as ambient
+
+    monkeypatch.setattr(ambient, "_claude_login_detected", lambda: True)
+    monkeypatch.setenv("OMNIGENT_HIDDEN_HARNESSES", "claude-native")
+
+    assert any(provider.name == "claude" for provider in detect_providers())

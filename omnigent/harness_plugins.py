@@ -10,6 +10,7 @@ from __future__ import annotations
 import importlib
 import importlib.metadata
 import logging
+import os
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from typing import TypeVar, cast
@@ -1037,11 +1038,37 @@ def native_harnesses() -> frozenset[str]:
     return _merge_set(lambda contribution: contribution.native_harnesses)
 
 
+# Comma-separated harness ids a deployment does not want offered, e.g.
+# ``claude-sdk,claude-native``. HIDDEN, not DISABLED: this filters the two
+# display surfaces only. valid_harnesses() is untouched, so a hand-written
+# spec naming a hidden harness still runs — the name has to stay honest about
+# that, or an operator will read it as a security control.
+_HIDDEN_HARNESSES_ENV = "OMNIGENT_HIDDEN_HARNESSES"
+
+
+def hidden_harnesses() -> frozenset[str]:
+    """Return harness ids withheld from the picker and the catalog.
+
+    Read per call rather than cached at import so a test or a relaunched
+    process picks up a changed environment.
+
+    :returns: Canonical harness ids to withhold; empty when unset.
+    """
+    raw = os.environ.get(_HIDDEN_HARNESSES_ENV, "")
+    return frozenset(entry.strip() for entry in raw.split(",") if entry.strip())
+
+
 def native_agents() -> tuple[NativeCodingAgent, ...]:
-    """Return native coding-agent metadata rows."""
+    """Return native coding-agent metadata rows.
+
+    Rows whose harness is listed in :data:`OMNIGENT_HIDDEN_HARNESSES` are
+    withheld — this is the picker's source, so it is what removes an entry
+    from the agent list.
+    """
+    hidden = hidden_harnesses()
     agents: list[NativeCodingAgent] = []
     for contribution in plugin_state().contributions:
-        agents.extend(contribution.native_agents)
+        agents.extend(agent for agent in contribution.native_agents if agent.harness not in hidden)
     return tuple(agents)
 
 
@@ -1135,9 +1162,10 @@ def harness_catalog() -> list[dict[str, object]]:
     except Exception:  # noqa: BLE001 — a broken onboarding import must not break the catalog
         _logger.debug("setup-step metadata unavailable", exc_info=True)
         ui_setup_steps = None  # type: ignore[assignment]
+    hidden = hidden_harnesses()
     rows: list[dict[str, object]] = []
     for harness in sorted(labels, key=lambda key: labels[key].lower()):
-        if harness not in valid_harnesses():
+        if harness not in valid_harnesses() or harness in hidden:
             continue
         row: dict[str, object] = {"id": harness, "label": labels[harness]}
         capability = capabilities.get(harness)
