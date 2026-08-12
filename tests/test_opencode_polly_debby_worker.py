@@ -54,13 +54,13 @@ def test_polly_declares_opencode_worker() -> None:
 def test_debby_does_not_declare_opencode_head() -> None:
     """debby stays opencode-free, so an older client can load it without skew.
 
-    debby is reverted to its two-head roster (claude + gpt). Re-adding an
+    debby keeps a two-head roster (deepseek + gpt). Re-adding an
     ``opencode`` head (or any ``opencode-native`` harness override) would
     reintroduce the harness that broke old clients on spec validation.
     """
     subs = _sub_agents("debby")
     assert "opencode" not in subs
-    assert {"claude", "gpt"} <= set(subs)
+    assert {"deepseek", "gpt"} <= set(subs)
     config_text = (_REPO_ROOT / "examples" / "debby" / "config.yaml").read_text(encoding="utf-8")
     assert "opencode" not in config_text.lower()
     # No head re-introduces opencode-native via a harness override either.
