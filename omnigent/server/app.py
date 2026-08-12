@@ -597,13 +597,24 @@ def _ensure_default_native_agents(
     of the name — stays byte-identical and a redeploy does not orphan persisted
     ``conversation.agent_id`` rows.
 
+    Harnesses listed in ``OMNIGENT_HIDDEN_HARNESSES`` get no card. Hiding is
+    applied here rather than in ``native_agents()`` because those rows also
+    back the runtime harness→wrapper lookups; withholding the card leaves a
+    session on that harness working, which is what "hidden, not disabled"
+    has to mean. An existing card from before the harness was hidden is left
+    alone — deleting agent rows would cascade into conversation history.
+
     :param agent_store: Store for agent metadata.
     :param artifact_store: Store for agent bundles.
     :param agent_cache: Cache for loaded agent specs.
     """
+    from omnigent.harness_plugins import hidden_harnesses
     from omnigent.native_coding_agents import NATIVE_CODING_AGENTS
 
+    hidden = hidden_harnesses()
     for agent in NATIVE_CODING_AGENTS:
+        if agent.harness in hidden:
+            continue
         provider = native_provider_for_key(agent.key)
         if provider is None:
             raise OmnigentError(

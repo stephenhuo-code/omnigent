@@ -335,17 +335,32 @@ def test_hidden_harnesses_empty_by_default(monkeypatch: pytest.MonkeyPatch) -> N
     assert hp.hidden_harnesses() == frozenset()
 
 
-def test_hidden_harness_drops_its_picker_and_catalog_rows(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """The picker and the catalog both stop offering a hidden harness."""
+def test_hidden_harness_drops_its_catalog_row(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The catalog stops offering a hidden harness."""
     monkeypatch.delenv("OMNIGENT_HIDDEN_HARNESSES", raising=False)
-    assert "claude" in {agent.key for agent in hp.native_agents()}
     assert "claude-sdk" in {row["id"] for row in hp.harness_catalog()}
 
     monkeypatch.setenv("OMNIGENT_HIDDEN_HARNESSES", "claude-sdk,claude-native")
-    assert "claude" not in {agent.key for agent in hp.native_agents()}
     assert "claude-sdk" not in {row["id"] for row in hp.harness_catalog()}
+
+
+def test_hidden_harness_keeps_its_native_agent_row(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """native_agents() stays unfiltered even while the harness is hidden.
+
+    These rows back the runtime harness->wrapper-label / terminal-name
+    lookups and the generated per-harness CLI commands. Filtering them would
+    change how a session on a hidden harness behaves rather than only
+    whether it is offered, so the card is withheld at seeding instead.
+    """
+    monkeypatch.setenv("OMNIGENT_HIDDEN_HARNESSES", "claude-sdk,claude-native")
+
+    assert "claude" in {agent.key for agent in hp.native_agents()}
+
+    from omnigent.native_coding_agents import native_coding_agent_for_harness
+
+    assert native_coding_agent_for_harness("claude-native") is not None
 
 
 def test_hidden_harness_still_validates_in_a_handwritten_spec(

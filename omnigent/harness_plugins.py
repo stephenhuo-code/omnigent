@@ -1061,14 +1061,16 @@ def hidden_harnesses() -> frozenset[str]:
 def native_agents() -> tuple[NativeCodingAgent, ...]:
     """Return native coding-agent metadata rows.
 
-    Rows whose harness is listed in :data:`OMNIGENT_HIDDEN_HARNESSES` are
-    withheld — this is the picker's source, so it is what removes an entry
-    from the agent list.
+    Deliberately unfiltered by :func:`hidden_harnesses`: these rows also back
+    the runtime lookup tables in :mod:`omnigent.native_coding_agents` (harness
+    → wrapper labels, terminal name, display name) and the generated
+    per-harness CLI commands. Dropping a row here would change how a session
+    on that harness behaves, not just whether it is offered. Hiding is applied
+    where cards are seeded and in :func:`harness_catalog` instead.
     """
-    hidden = hidden_harnesses()
     agents: list[NativeCodingAgent] = []
     for contribution in plugin_state().contributions:
-        agents.extend(agent for agent in contribution.native_agents if agent.harness not in hidden)
+        agents.extend(contribution.native_agents)
     return tuple(agents)
 
 
