@@ -89,6 +89,16 @@ services:
       # harness catalog, and to stop probing for during setup. Display only —
       # a hand-written spec naming a hidden harness still runs.
       OMNIGENT_HIDDEN_HARNESSES: ${OMNIGENT_HIDDEN_HARNESSES:-}
+
+      # ── Providers ────────────────────────────────────────
+      # Where the server reads providers: (endpoints, credentials, default
+      # models). Anchored on the volume because the default is the container
+      # user's home, which a rebuild discards — and the model-backed example
+      # agents (deepseek / minimax) are only offered when their provider is
+      # configured, so losing this file silently removes their cards.
+      OMNIGENT_CONFIG_HOME: /data/config
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      MINIMAX_API_KEY: ${MINIMAX_API_KEY:-}
     volumes:
       - artifact-data:/data
     ports:

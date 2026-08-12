@@ -152,6 +152,55 @@ docker compose ps
 下次 sync 会用 `--delete` 把它覆盖掉，而且那份改动没进版本控制，环境就不再可
 复现了。
 
+## 配置模型 provider
+
+DeepSeek / MiniMax 这两个示例 agent 不写死模型，而是引用同名 provider——端点、
+密钥、默认模型都从那里来。**没配 provider 就不会出现对应的卡片**（不能启动的
+agent 不该出现在选择器里）。
+
+配置文件放在数据卷上（`OMNIGENT_CONFIG_HOME=/data/config`），容器重建不会丢。
+在 ECS 上创建 `/data/config/config.yaml`：
+
+```yaml
+providers:
+  deepseek:
+    kind: key
+    openai:
+      base_url: https://api.deepseek.com/v1
+      api_key_ref: env:DEEPSEEK_API_KEY
+      models:
+        default: deepseek-v4-flash
+  minimax:
+    kind: key
+    openai:
+      base_url: https://api.minimaxi.com/v1
+      api_key_ref: env:MINIMAX_API_KEY
+      models:
+        default: MiniMax-M3
+```
+
+密钥本身不写在这里——`api_key_ref: env:X` 指向环境变量，实际的值填在 `.env`
+里（`DEEPSEEK_API_KEY` / `MINIMAX_API_KEY`），`.env` 不进版本库。
+
+模型 id 用 `curl https://api.deepseek.com/v1/models -H "Authorization: Bearer $KEY"`
+查当前可用的。注意 DeepSeek 的 `-pro` 目前拒绝 agent 形态的调用，会返回 400 并
+提示改用 `-flash`。
+
+改完重启：`docker compose restart omnigent`，然后确认卡片出现：
+
+```bash
+curl -s http://<host>:8000/v1/agents | grep -o '"name":"[^"]*"' | sort
+```
+
+## 隐藏 Claude
+
+`.env` 里设 `OMNIGENT_HIDDEN_HARNESSES=claude-sdk,claude-native`，重跑
+`./scripts/deploy.sh`。选择器和 `/v1/harnesses` 都不再出现 Claude，`omnigent
+setup` 也不再探测 Claude 订阅。
+
+这只是**不展示**：手写 `harness: claude-sdk` 的 spec 仍然能跑。需要真正禁用请用
+别的手段。
+
 ## 备份
 
 ```bash
