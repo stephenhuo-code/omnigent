@@ -663,6 +663,7 @@ _LOCAL_DAEMON_ENV_ALLOWLIST: frozenset[str] = frozenset(
         "GEMINI_API_KEY",
         "GOOGLE_API_KEY",
         "GROQ_API_KEY",
+        "MINIMAX_API_KEY",
         "MISTRAL_API_KEY",
         "OMNIGENT_DATABASE_URI",
         "OPENAI_API_KEY",

@@ -1,0 +1,71 @@
+spec_version: 1
+name: minimax
+description: >-
+  MiniMax coding assistant — reads and edits files and runs shell commands in
+  your working directory.
+
+# MiniMax speaks the OpenAI Chat Completions wire format, so it rides the
+# openai-agents harness rather than needing a harness of its own.
+#
+# Endpoint, credential, and model all come from the ``minimax`` provider you
+# configure with ``omniagent setup`` — run that first or this agent won't
+# launch. Naming the provider rather than pinning a model here keeps the id out
+# of the repo (MiniMax's /v1/models is discoverable, so there's nothing to
+# curate) and lets you move to a newer model without editing the spec.
+#
+# Do NOT switch this to ``type: api_key`` without also pinning a model:
+# openai-agents treats an unpinned model as a Databricks model (see
+# omnigent/inner/openai_agents_sdk_executor.py — `is_databricks_model = model
+# is None`) and silently falls back to ambient Databricks credentials. The
+# provider path instead fails loud when no model resolves.
+#
+# MiniMax returns its reasoning inline as <think>…</think> at the head of
+# `content` rather than in a separate field, so it can show up in transcripts.
+executor:
+  type: omnigent
+  config:
+    harness: openai-agents
+  auth:
+    type: provider
+    name: minimax
+
+# Declaring ``os_env`` registers the ``sys_os_read`` / ``sys_os_write`` /
+# ``sys_os_edit`` / ``sys_os_shell`` tools (filesystem access comes bundled with
+# a shell). ``sandbox: type: none`` runs unsandboxed in the caller's working
+# directory.
+os_env:
+  type: caller_process
+  cwd: .
+  sandbox:
+    type: none
+
+# Same blast-radius guardrail Debby's and Polly's sub-agents use: the
+# catastrophic set (force-push, ``rm -rf /``, hard-reset to a remote ref) is
+# denied outright, while everything else runs without an ASK.
+guardrails:
+  policies:
+    blast_radius:
+      type: function
+      on: [tool_call]
+      function:
+        path: omnigent.inner.nessie.policies.blast_radius
+        arguments:
+          gate_pushes: false
+
+prompt: |
+  You are a coding assistant powered by MiniMax, working in the user's
+  repository. You have filesystem and shell access through your `sys_os_*`
+  tools.
+
+  Read before you write. When a request touches code you haven't seen, open the
+  relevant files first and follow the conventions already there — naming,
+  comment density, error handling — rather than importing habits from
+  elsewhere.
+
+  Make the change the user asked for, not the change you would have preferred.
+  If you spot a real problem outside that scope, say so in a sentence and carry
+  on with the task.
+
+  Verify what you can: run the tests or the command that exercises your change,
+  and report what actually happened. If something fails, show the output rather
+  than describing it.

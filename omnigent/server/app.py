@@ -473,6 +473,7 @@ def _ensure_default_agents(
     _ensure_default_native_agents(agent_store, artifact_store, agent_cache)
     _ensure_default_debby_agent(agent_store, artifact_store, agent_cache)
     _ensure_default_polly_agent(agent_store, artifact_store, agent_cache)
+    _ensure_model_example_agents(agent_store, artifact_store, agent_cache)
     _ensure_extra_builtin_agents(agent_store, artifact_store, agent_cache)
 
 
@@ -730,6 +731,65 @@ def _ensure_default_polly_agent(
         name=_POLLY_AGENT_NAME,
         bundle_bytes=_build_polly_bundle(),
     )
+
+
+# Model-backed example agents: a single config.yaml each, driving a hosted API
+# through the openai-agents harness rather than wrapping an installed CLI the
+# way the native coding agents do. Each spec names the like-named provider for
+# its endpoint, credential, and model.
+_MODEL_EXAMPLE_AGENTS: tuple[str, ...] = ("deepseek", "minimax")
+
+
+def _ensure_model_example_agents(
+    agent_store: AgentStore,
+    artifact_store: ArtifactStore,
+    agent_cache: Any,
+) -> None:
+    """
+    Register the packaged model-backed example agents as picker cards.
+
+    Seeded only for providers this deployment has configured, since each
+    spec resolves its endpoint, credential, and model from the like-named
+    provider and fails loud without one. That keeps a deployment from
+    offering a card it cannot launch — the same "asset present → enable
+    feature" rule the debby and polly seeders apply to a missing bundle.
+
+    Content-aware and idempotent via :func:`_ensure_builtin_agent`, so a
+    wheel shipping a changed spec refreshes the existing row.
+
+    :param agent_store: Store for agent metadata.
+    :param artifact_store: Store for agent bundles.
+    :param agent_cache: Cache for loaded agent specs.
+    """
+    import tempfile
+
+    from omnigent.onboarding.provider_config import load_config, load_providers
+    from omnigent.spec import materialize_bundle
+
+    try:
+        configured = load_providers(load_config())
+    except Exception:  # a malformed providers block must not block startup
+        _logger.exception("Could not read provider config; skipping model example agents.")
+        return
+
+    for name in _MODEL_EXAMPLE_AGENTS:
+        source = resolve_repo_symlink(Path(_examples_resources.__file__).parent / name)
+        if not (source / "config.yaml").is_file():
+            _logger.debug("%s bundle not found at %s; skipping seed", name, source)
+            continue
+        if name not in configured:
+            _logger.debug("provider %s not configured; skipping %s seed", name, name)
+            continue
+        with tempfile.TemporaryDirectory() as tmpdir:
+            bundle_dir = materialize_bundle(source, Path(tmpdir) / "bundle")
+            bundle_bytes = _tar_gz_dir(bundle_dir)
+        _ensure_builtin_agent(
+            agent_store,
+            artifact_store,
+            agent_cache,
+            name=name,
+            bundle_bytes=bundle_bytes,
+        )
 
 
 def create_app(
