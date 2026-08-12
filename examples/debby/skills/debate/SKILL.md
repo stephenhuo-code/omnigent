@@ -1,6 +1,6 @@
 ---
 name: debate
-description: Have the Claude and GPT partners critique each other's answers across a configurable number of rounds (default 1) before converging on a synthesis. Use when the user wants the two perspectives stress-tested against each other, not just shown side by side.
+description: Have the DeepSeek and GPT partners critique each other's answers across a configurable number of rounds (default 1) before converging on a synthesis. Use when the user wants the two perspectives stress-tested against each other, not just shown side by side.
 ---
 
 # debate — make the two partners argue it out
@@ -21,17 +21,17 @@ user ("debate this for 3 rounds"); otherwise run 1.
 
 1. **Round 0 — collect the opening answers.** If you do not already have a
    fresh answer from each partner for this question, dispatch it to both
-   `claude` and `gpt` in parallel via `sys_session_send` (ANSWER mode), give
+   `deepseek` and `gpt` in parallel via `sys_session_send` (ANSWER mode), give
    each call a stable per-partner `title` — the topic with the partner's name
-   attached (e.g. `debate-pricing-claude` / `debate-pricing-gpt`), end your
+   attached (e.g. `debate-pricing-deepseek` / `debate-pricing-gpt`), end your
    turn, and collect both with `sys_read_inbox`. If you already showed the
    user both answers this turn, reuse those as round 0.
 
 2. **For each debate round (default 1):**
-   - Send `claude` the OTHER partner's latest answer (GPT's) and ask it to
+   - Send `deepseek` the OTHER partner's latest answer (GPT's) and ask it to
      critique that answer and then give its own updated answer (CRITIQUE
      mode). Reuse that partner's own `title` so it continues its thread.
-   - Send `gpt` the OTHER partner's latest answer (Claude's) and ask the
+   - Send `gpt` the OTHER partner's latest answer (DeepSeek's) and ask the
      same. Dispatch both in the same turn so they run concurrently.
    - End your turn; collect both updated answers with `sys_read_inbox`.
    - Always cross the answers: in round N, each partner critiques the
@@ -40,8 +40,8 @@ user ("debate this for 3 rounds"); otherwise run 1.
 
 3. **Converge.** After the final round, write the synthesis yourself:
 
-       ## 🟠 Claude — final
-       <Claude's last answer, lightly trimmed>
+       ## 🟠 DeepSeek — final
+       <DeepSeek's last answer, lightly trimmed>
 
        ## 🔵 GPT — final
        <GPT's last answer, lightly trimmed>
