@@ -30,6 +30,8 @@ import react from "@vitejs/plugin-react";
 import postcss from "postcss";
 import { defineConfig, type Plugin } from "vite";
 
+import { uiLang } from "./plugins/vite-plugin-ui-lang";
+
 const SCOPE = ".omnigent-app";
 
 /** Split a selector list on top-level commas (ignoring commas inside () or []). */
@@ -246,6 +248,7 @@ export default defineConfig({
   // app.rsbuild.config.ts). rspack owns the FINAL hashed worker name.
   base: "./",
   plugins: [
+    uiLang(),
     react(),
     tailwindcss(),
     scopeOmnigentCss(),

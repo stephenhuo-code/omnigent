@@ -280,7 +280,7 @@ describe("auto-update main-process wiring", () => {
       {
         channel: "omnigent:update-download",
         args: [],
-        message: "Download an Omnigent update?",
+        message: "下载 Omnigent 更新？",
         prepare: () => {},
         assertRan: (harness) => {
           assert.equal(harness.calls.downloadUpdate, 1);
@@ -289,7 +289,7 @@ describe("auto-update main-process wiring", () => {
       {
         channel: "omnigent:update-install",
         args: [],
-        message: "Restart Omnigent to install an update?",
+        message: "重启 Omnigent 以安装更新？",
         prepare: (harness) => {
           harness.autoUpdater.emit("update-downloaded", { version: "0.4.0" });
         },
@@ -301,7 +301,7 @@ describe("auto-update main-process wiring", () => {
       {
         channel: "omnigent:set-update-config",
         args: [{ mode: "manual" }],
-        message: "Change Omnigent update settings?",
+        message: "更改 Omnigent 更新设置？",
         prepare: () => {},
         assertRan: (harness) => {
           assert.equal(harness.readSettings().update_mode, "manual");
@@ -328,8 +328,8 @@ describe("auto-update main-process wiring", () => {
       assert.equal(harness.calls.showMessageBox[0].options.title, "Omnigent");
       assert.equal(harness.calls.showMessageBox[0].options.message, item.message);
       assert.deepEqual(plain(harness.calls.showMessageBox[0].options.buttons), [
-        "Don't Allow",
-        "Allow Once",
+        "不允许",
+        "允许一次",
       ]);
       item.assertRan(harness);
     }

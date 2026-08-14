@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>Find</title>
+    <title>查找</title>
     <style>
       /* Same design tokens as setup/index.html so the bar matches the app. */
       :root {
@@ -71,11 +71,11 @@
     </style>
   </head>
   <body>
-    <input id="q" type="text" placeholder="Find in page" autocomplete="off" spellcheck="false" />
+    <input id="q" type="text" placeholder="在页面中查找" autocomplete="off" spellcheck="false" />
     <span id="count"></span>
-    <button id="prev" title="Previous (Shift+Enter)">&#8593;</button>
-    <button id="next" title="Next (Enter)">&#8595;</button>
-    <button id="close" title="Close (Esc)">&#10005;</button>
+    <button id="prev" title="上一个 (Shift+Enter)">&#8593;</button>
+    <button id="next" title="下一个 (Enter)">&#8595;</button>
+    <button id="close" title="关闭 (Esc)">&#10005;</button>
     <script>
       // Uses the find-bar preload bridge (electron/src/find_preload.js); the
       // actual searching runs in the main process against the parent window.

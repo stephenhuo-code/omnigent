@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Omnigents — Connect</title>
+    <title>Omnigents — 连接</title>
     <style>
       /* Design tokens lifted from web/src/index.css (:root and .dark) so
          this bundled page matches the web UI it hands off to. */
@@ -352,8 +352,8 @@
       type="button"
       id="cli-gear"
       class="gear-btn"
-      aria-label="Configure the Omnigent CLI"
-      title="Configure the Omnigent CLI"
+      aria-label="配置 Omnigent CLI"
+      title="配置 Omnigent CLI"
       hidden
     >
       <svg
@@ -382,15 +382,15 @@
         />
         <img class="logo" src="../../platform-assets/logos/omnigents-logo.svg" alt="Omnigents" />
       </picture>
-      <p class="sub">Run an Omnigents server on this machine, or connect to an existing one.</p>
+      <p class="sub">在这台机器上运行 Omnigents 服务器，或连接到已有的服务器。</p>
       <div id="local-section">
         <!-- Always enabled: when the CLI is missing this opens the settings
              modal (install / set path) instead of failing to start. -->
-        <button id="start-local">Start locally</button>
+        <button id="start-local">在本机启动</button>
         <div class="divider">or connect to a server</div>
       </div>
 
-      <label for="url">Server URL</label>
+      <label for="url">服务器地址</label>
       <input
         id="url"
         type="text"
@@ -398,18 +398,18 @@
         autocomplete="off"
         spellcheck="false"
       />
-      <button id="connect">Connect</button>
+      <button id="connect">连接</button>
       <div class="err" id="err"></div>
 
       <div class="recents" id="recents" hidden>
-        <p class="recents-title">Recent servers</p>
+        <p class="recents-title">最近的服务器</p>
         <div id="recents-list"></div>
       </div>
     </div>
 
     <!-- Omnigent CLI settings, opened from the gear. Hidden by default. -->
     <div class="modal-overlay" id="cli-modal" hidden>
-      <div class="modal" role="dialog" aria-modal="true" aria-label="Omnigent CLI settings">
+      <div class="modal" role="dialog" aria-modal="true" aria-label="Omnigent CLI 设置">
         <p class="modal-title">Omnigent CLI</p>
         <p class="cli-note" id="cli-status"></p>
         <div id="cli-install" hidden>
@@ -421,10 +421,10 @@
               >Install the Omnigent CLI ↗</a
             >
           </p>
-          <p>Already installed it? Re-detect, or set the path below.</p>
-          <button type="button" id="cli-redetect">Re-detect</button>
+          <p>已经安装过了？重新检测，或在下方设置路径。</p>
+          <button type="button" id="cli-redetect">重新检测</button>
         </div>
-        <p id="cli-path-label">Path to the Omnigent CLI</p>
+        <p id="cli-path-label">Omnigent CLI 的路径</p>
         <div class="path-row">
           <input
             id="cli-path"
@@ -433,10 +433,10 @@
             autocomplete="off"
             spellcheck="false"
           />
-          <button type="button" id="cli-browse">Browse…</button>
+          <button type="button" id="cli-browse">浏览…</button>
         </div>
         <p class="cli-note" id="cli-path-note"></p>
-        <button type="button" id="cli-modal-close" class="modal-close">Done</button>
+        <button type="button" id="cli-modal-close" class="modal-close">完成</button>
       </div>
     </div>
     <script src="../src/url.js"></script>
@@ -462,12 +462,11 @@
       if (loadError) {
         // textContent, never innerHTML: both values come from the query
         // string and must be rendered as inert text.
-        err.textContent = failedUrl ? `Could not load ${failedUrl}: ${loadError}` : loadError;
+        err.textContent = failedUrl ? `无法加载 ${failedUrl}: ${loadError}` : loadError;
       }
       if (isEphemeral) {
         document.querySelector("p.sub").textContent =
-          "Connect this window to a different server. The URL applies to " +
-          "this window only and is not saved.";
+          "把此窗口连接到另一台服务器。该地址仅对此窗口生效，不会被保存。";
       }
 
       // Pre-fill with the URL that just failed (retry is the common next
@@ -514,7 +513,7 @@
             const copyButton = document.createElement("button");
             copyButton.type = "button";
             copyButton.className = "recent-copy";
-            copyButton.title = "Copy URL";
+            copyButton.title = "复制地址";
             copyButton.setAttribute("aria-label", `Copy recent server URL ${url}`);
             copyButton.innerHTML = `
               <svg class="copy-icon" viewBox="0 0 24 24" aria-hidden="true">
@@ -530,15 +529,15 @@
               try {
                 await setup.copyText(url);
                 copyButton.dataset.copied = "true";
-                copyButton.title = "Copied";
+                copyButton.title = "已复制";
                 copyButton.setAttribute("aria-label", `Copied recent server URL ${url}`);
                 setTimeout(() => {
                   delete copyButton.dataset.copied;
-                  copyButton.title = "Copy URL";
+                  copyButton.title = "复制地址";
                   copyButton.setAttribute("aria-label", `Copy recent server URL ${url}`);
                 }, 1500);
               } catch {
-                err.textContent = "Could not copy recent server URL.";
+                err.textContent = "无法复制最近的服务器地址。";
               }
             });
 
@@ -560,8 +559,7 @@
         if (isPlainHttpRemote(value) && warnedFor !== value) {
           warnedFor = value;
           err.textContent =
-            "Warning: unencrypted http:// to a remote host — anyone on the " +
-            "network path can act as this server. Click Connect again to proceed.";
+            "警告: 以未加密的 http:// 连接远程主机 —— 网络路径上的任何人都可以冒充此服务器。再次点击「连接」以继续。";
           return;
         }
         button.disabled = true;
@@ -618,9 +616,9 @@
         cliInstall.hidden = installed;
         cliStatus.textContent = installed
           ? status.version
-            ? `Found: ${status.version}`
-            : "Omnigent CLI found."
-          : "Omnigent CLI not found.";
+            ? `已找到: ${status.version}`
+            : "已找到 Omnigent CLI。"
+          : "未找到 Omnigent CLI。";
         cliPathInput.placeholder = status.path || "/path/to/omni";
         // Draw the eye to the (otherwise quiet) gear when the CLI is missing.
         cliGear.classList.toggle("attention", !installed);
@@ -634,7 +632,7 @@
         const p = (value || "").trim();
         if (p === "") return true;
         cliPathNote.className = "cli-note";
-        cliPathNote.textContent = "Checking…";
+        cliPathNote.textContent = "检查中…";
         let result;
         try {
           result = await setup.setCliPath(p);
@@ -643,8 +641,8 @@
         }
         if (result && result.accepted) {
           cliPathNote.textContent = result.version
-            ? `Found: ${result.version}`
-            : "Found the Omnigent CLI.";
+            ? `已找到: ${result.version}`
+            : "已找到 Omnigent CLI。";
           // Clear the value so the field reverts to showing the (now-updated)
           // resolved path as its placeholder.
           cliPathInput.value = "";
@@ -652,7 +650,7 @@
           return true;
         }
         cliPathNote.className = "cli-note bad";
-        cliPathNote.textContent = "That path is not a runnable Omnigent CLI.";
+        cliPathNote.textContent = "该路径不是可运行的 Omnigent CLI。";
         return false;
       }
 
@@ -693,7 +691,7 @@
         // Re-run auto-detection (getCliStatus re-resolves every call) — the
         // post-install path: install via the link, then click to pick it up.
         cliRedetect.addEventListener("click", async () => {
-          cliStatus.textContent = "Checking…";
+          cliStatus.textContent = "检查中…";
           await refreshCliStatus();
         });
         startLocalBtn.addEventListener("click", async () => {
@@ -705,7 +703,7 @@
           err.textContent = "";
           const prev = startLocalBtn.textContent;
           startLocalBtn.disabled = true;
-          startLocalBtn.textContent = "Starting…";
+          startLocalBtn.textContent = "启动中…";
           try {
             const result = await setup.startLocalServer();
             if (result && result.ok && result.url) {
@@ -716,7 +714,7 @@
               await setup.setServerUrl(result.url);
               return;
             }
-            err.textContent = (result && result.error) || "Could not start the local server.";
+            err.textContent = (result && result.error) || "无法启动本地服务器。";
           } catch (e) {
             err.textContent = String(e && e.message ? e.message : e);
           }

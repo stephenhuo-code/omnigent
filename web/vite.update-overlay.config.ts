@@ -17,6 +17,8 @@ import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
+import { uiLang } from "./plugins/vite-plugin-ui-lang";
+
 export default defineConfig({
   // Assets are loaded from a file:// page in the shell, so reference them
   // relatively rather than from the server root.
@@ -26,7 +28,9 @@ export default defineConfig({
   // copy ~150KB of orphan PWA images into electron/overlay/, which would then
   // be shipped by electron-builder's `build.files: overlay/**/*`.
   publicDir: false,
-  plugins: [react(), tailwindcss()],
+  // This island renders the shared UpdateBanner, so it needs the same
+  // translation pass as the main build or the desktop update UI stays English.
+  plugins: [uiLang(), react(), tailwindcss()],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
