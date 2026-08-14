@@ -1206,7 +1206,7 @@ function attachContextMenu(win) {
         });
       }
       template.push({
-        label: "Add to Dictionary",
+        label: "添加到词典",
         click: () => win.webContents.session.addWordToSpellCheckerDictionary(params.misspelledWord),
       });
       template.push({ type: "separator" });
@@ -1214,7 +1214,7 @@ function attachContextMenu(win) {
 
     if (params.linkURL) {
       template.push({
-        label: "Copy Link Address",
+        label: "复制链接地址",
         click: () => clipboard.writeText(params.linkURL),
       });
       template.push({ type: "separator" });
@@ -1434,13 +1434,13 @@ async function confirmExternalProtocol(win, url, scheme) {
   const requester = originOf(win.webContents.getURL());
   const { response, checkboxChecked } = await dialog.showMessageBox(win, {
     type: "warning",
-    buttons: ["Cancel", "Open"],
+    buttons: ["取消", "打开"],
     defaultId: 0, // Cancel is the safe default
     cancelId: 0,
-    message: `Open this ${scheme.slice(0, -1)} link?`,
-    detail: `${requester ?? "This page"} wants to open:\n\n${url}`,
+    message: `要打开这个 ${scheme.slice(0, -1)} 链接吗？`,
+    detail: `${requester ?? "此页面"} 请求打开:\n\n${url}`,
     checkboxLabel: onPinnedServer
-      ? `Always allow ${scheme.slice(0, -1)} links from ${new URL(pinned).host}`
+      ? `始终允许来自 ${new URL(pinned).host} 的 ${scheme.slice(0, -1)} 链接`
       : undefined,
     checkboxChecked: false,
   });
@@ -1507,18 +1507,16 @@ async function confirmHostEnrollment(win) {
   // via redirect can be allowed once, but never remembered.
   const ALLOW_ONCE = 1;
   const ALWAYS_ALLOW = 2;
-  const buttons = onPinnedServer
-    ? ["Don't Allow", "Allow Once", "Always Allow"]
-    : ["Don't Allow", "Allow Once"];
+  const buttons = onPinnedServer ? ["不允许", "允许一次", "始终允许"] : ["不允许", "允许一次"];
   const { response } = await dialog.showMessageBox(win, {
     type: "warning",
     icon: icon.isEmpty() ? undefined : icon,
     title: "Omnigent",
-    message: `Allow ${host} to manage Omnigent on this machine?`,
+    message: `允许 ${host} 管理这台机器上的 Omnigent？`,
     detail:
-      `${pinned} wants to connect this machine as a runner. While connected, it ` +
-      `can execute agent code and commands here on its behalf.\n\n` +
-      `Only allow servers you trust.`,
+      `${pinned} 请求把这台机器接入为运行器。接入后，它可以代表该服务器 ` +
+      `在这里执行智能体代码和命令。\n\n` +
+      `请仅允许你信任的服务器。`,
     buttons,
     defaultId: 0, // deny is the safe default (Esc / Enter both decline)
     cancelId: 0,
@@ -1727,7 +1725,7 @@ function buildMenu() {
   const serverSubmenu = [
     {
       id: "new_window",
-      label: "New Window",
+      label: "新建窗口",
       // Own the standard new-window accelerator here — there is no
       // role-based File menu in this app.
       accelerator: "CmdOrCtrl+N",
@@ -1737,13 +1735,13 @@ function buildMenu() {
       id: "new_server_window",
       // A second server in its own window. The connection is per-window —
       // it never replaces the saved default server.
-      label: "New Window on Different Server…",
+      label: "在其他服务器上新建窗口…",
       click: () => createWindow(undefined, { ephemeral: true }),
     },
     { type: "separator" },
     {
       id: "change_server",
-      label: "Change Server…",
+      label: "更改服务器…",
       click: () => changeServer(),
     },
     { type: "separator" },
@@ -1753,7 +1751,7 @@ function buildMenu() {
     // consent dialog when driven from a server page).
     {
       id: "check_for_updates",
-      label: "Check for Updates…",
+      label: "检查更新…",
       click: async () => {
         // Surface the two silent outcomes of a manual menubar check with a
         // native dialog: "no update" (otherwise only the renderer banner
@@ -1767,7 +1765,7 @@ function buildMenu() {
             await dialog.showMessageBox(activeWindow(), {
               type: "info",
               title: "Omnigent",
-              message: "You're up to date!",
+              message: "已是最新版本！",
               detail: `Omnigent ${app.getVersion()} is the latest version.`,
               buttons: ["OK"],
             });
@@ -1776,7 +1774,7 @@ function buildMenu() {
           await dialog.showMessageBox(activeWindow(), {
             type: "warning",
             title: "Omnigent",
-            message: "Couldn't check for updates",
+            message: "无法检查更新",
             detail: String(err?.message ?? err),
             buttons: ["OK"],
           });
@@ -1785,7 +1783,7 @@ function buildMenu() {
     },
     {
       id: "restart_to_update",
-      label: "Restart to Update",
+      label: "重启以更新",
       click: async () => {
         // Production install path: the UpdateBanner toast is dismissible (and
         // a user may have closed it), so the menubar must still offer a way to
@@ -1797,8 +1795,8 @@ function buildMenu() {
           await dialog.showMessageBox(activeWindow(), {
             type: "info",
             title: "Omnigent",
-            message: "No update is ready to install",
-            detail: "Check for updates first, then download the new version.",
+            message: "没有可安装的更新",
+            detail: "请先检查更新，然后下载新版本。",
             buttons: ["OK"],
           });
         }
@@ -1807,13 +1805,13 @@ function buildMenu() {
     { type: "separator" },
     // `role: "close"` carries the standard CmdOrCtrl+W shortcut and closes
     // the focused window. There is no File menu, so Close lives under Server.
-    { role: "close", label: "Close Window" },
+    { role: "close", label: "关闭窗口" },
   ];
 
   // Our custom Server menu, inserted right after the leftmost menu — index 1
   // on macOS (after the app menu), first on Linux/Windows.
   template.push({
-    label: "Server",
+    label: "服务器",
     submenu: serverSubmenu,
   });
 
@@ -1821,7 +1819,7 @@ function buildMenu() {
   // text-editing shortcuts; hand-rolled here instead of `role: "editMenu"`
   // only so Find… can live where users expect it.
   template.push({
-    label: "Edit",
+    label: "编辑",
     submenu: [
       { role: "undo" },
       { role: "redo" },
@@ -1835,7 +1833,7 @@ function buildMenu() {
       { type: "separator" },
       {
         id: "find",
-        label: "Find…",
+        label: "查找…",
         accelerator: "CmdOrCtrl+F",
         click: () => {
           const target = findTargetForShortcut();
@@ -1847,7 +1845,7 @@ function buildMenu() {
   // Standard View roles (Reload/zoom/fullscreen). Developer Tools lives in
   // the Debug menu (dev only), so this menu is identical in dev and release.
   template.push({
-    label: "View",
+    label: "视图",
     submenu: [
       { role: "reload" },
       { role: "forceReload" },
@@ -1896,7 +1894,7 @@ function buildMenu() {
         { type: "separator" },
         {
           id: "notification_sound_enabled",
-          label: "Play Notification Sound",
+          label: "播放通知声音",
           type: "checkbox",
           checked: notificationSoundEnabled(),
           click: (item) => {
@@ -1905,13 +1903,13 @@ function buildMenu() {
             saveSettings(settings);
           },
         },
-        { label: "Sound", submenu: soundChoices },
+        { label: "声音", submenu: soundChoices },
       );
     }
 
     debugSubmenu.push({ type: "separator" }, { role: "toggleDevTools" });
 
-    template.push({ label: "Debug", submenu: debugSubmenu });
+    template.push({ label: "调试", submenu: debugSubmenu });
   }
 
   const menu = Menu.buildFromTemplate(template);
@@ -2345,7 +2343,7 @@ function registerIpc() {
     }
     const win = BrowserWindow.fromWebContents(event.sender) ?? activeWindow();
     const result = await dialog.showOpenDialog(win ?? undefined, {
-      title: "Locate the Omnigent CLI binary",
+      title: "定位 Omnigent CLI 可执行文件",
       properties: ["openFile"],
     });
     if (result.canceled || result.filePaths.length === 0) return null;
@@ -2610,12 +2608,12 @@ async function confirmOpenDeepLink(parent, targetOrigin) {
     type: "warning",
     icon: icon.isEmpty() ? undefined : icon,
     title: "Omnigent",
-    message: `Open this Omnigent link?`,
+    message: `要打开这个 Omnigent 链接吗？`,
     detail:
-      `This link will connect Omnigent to ${host} and open a conversation.\n\n` +
-      `Only open links from a server you trust — once connected, it can show ` +
-      `notifications and (when you allow it) manage this machine as a runner.`,
-    buttons: ["Cancel", "Open"],
+      `此链接会把 Omnigent 连接到 ${host} 并打开一个对话。\n\n` +
+      `请仅打开来自你信任的服务器的链接 —— 连接后，它可以显示通知，` +
+      `并在你允许时把这台机器作为运行器管理。`,
+    buttons: ["取消", "打开"],
     defaultId: 0, // Cancel is the safe default
     cancelId: 0,
     noLink: true,

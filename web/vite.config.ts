@@ -6,6 +6,7 @@ import react from "@vitejs/plugin-react";
 import type { Plugin, ProxyOptions } from "vite";
 import { defineConfig } from "vitest/config";
 
+import { uiLang } from "./plugins/vite-plugin-ui-lang";
 import { computeBuildVersion } from "./src/lib/buildVersion";
 
 const OMNIGENT_URL = process.env.OMNIGENT_URL ?? "http://localhost:6767";
@@ -253,7 +254,9 @@ function safariLookbehindWorkarounds(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [emitPwaAssets(), safariLookbehindWorkarounds(), react(), tailwindcss()],
+  // uiLang is a no-op unless OMNIGENT_UI_LANG is set, and must precede react()
+  // so it still sees JSX text nodes as text.
+  plugins: [uiLang(), emitPwaAssets(), safariLookbehindWorkarounds(), react(), tailwindcss()],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

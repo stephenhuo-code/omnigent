@@ -289,22 +289,16 @@ function createDesktopUpdater({
 
     const copy = {
       download: {
-        message: "Download an Omnigent update?",
-        detail:
-          `${host} wants to download a desktop update for this Omnigent app.\n\n` +
-          `Only allow servers you trust.`,
+        message: "下载 Omnigent 更新？",
+        detail: `${host} 请求为此 Omnigent 应用下载桌面端更新。\n\n请仅允许你信任的服务器。`,
       },
       install: {
-        message: "Restart Omnigent to install an update?",
-        detail:
-          `${host} wants to restart Omnigent and install the downloaded desktop update.\n\n` +
-          `Only allow servers you trust.`,
+        message: "重启 Omnigent 以安装更新？",
+        detail: `${host} 请求重启 Omnigent 并安装已下载的桌面端更新。\n\n请仅允许你信任的服务器。`,
       },
       config: {
-        message: "Change Omnigent update settings?",
-        detail:
-          `${host} wants to change how this Omnigent app checks for and installs updates.\n\n` +
-          `Only allow servers you trust.`,
+        message: "更改 Omnigent 更新设置？",
+        detail: `${host} 请求更改此 Omnigent 应用检查和安装更新的方式。\n\n请仅允许你信任的服务器。`,
       },
     }[action];
     if (!copy) return false;
@@ -316,7 +310,7 @@ function createDesktopUpdater({
       title: "Omnigent",
       message: copy.message,
       detail: copy.detail,
-      buttons: ["Don't Allow", "Allow Once"],
+      buttons: ["不允许", "允许一次"],
       defaultId: 0,
       cancelId: 0,
       noLink: true,
