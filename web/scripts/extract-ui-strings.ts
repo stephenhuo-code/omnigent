@@ -57,8 +57,11 @@ const KEY_NAMES = new Set([
 function walk(dir: string, out: string[] = []): string[] {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     const p = path.join(dir, entry.name);
-    if (entry.isDirectory()) walk(p, out);
-    else if (
+    // Test fixtures are not shipped UI; translating them would only add
+    // dictionary entries that never render.
+    if (entry.isDirectory()) {
+      if (entry.name !== "__fixtures__" && entry.name !== "__mocks__") walk(p, out);
+    } else if (
       /\.tsx?$/.test(entry.name) &&
       !/\.test\./.test(entry.name) &&
       !/\.d\.ts$/.test(entry.name)
@@ -79,7 +82,13 @@ export function humanish(raw: string): boolean {
   if (/^[a-z][a-z0-9]*([A-Z][a-z0-9]*)+$/.test(t)) return false; // camelCase
   if (/^[a-z][a-z0-9]*(\/[a-z0-9.*-]+)+$/i.test(t)) return false; // module / mime path
   const tokens = t.split(/\s+/);
-  if (tokens.length >= 2 && tokens.every((x) => /^[a-z0-9:[\]/.\-%()_,#!]+$/.test(x))) return false;
+  if (tokens.length >= 2 && tokens.every((x) => /^[a-z0-9:[\]/.\-%()_,#!]+$/.test(x))) {
+    // All-lowercase is not enough to call something a class list: "binary
+    // missing" and "needs auth" are badge copy. Real Tailwind carries class
+    // grammar — a dash, colon, bracket, or slash — in most of its tokens.
+    const classy = tokens.filter((x) => /[-:[\]/]/.test(x)).length;
+    if (classy / tokens.length >= 0.5) return false;
+  }
   return true;
 }
 
@@ -93,7 +102,11 @@ export function literalNoise(raw: string): boolean {
   const t = raw.trim();
   if (KEY_NAMES.has(t)) return true;
   if (/^\[?data-/.test(t) || t.includes("[data-")) return true; // DOM selector
-  if (/^(calc|var|rgb|hsl|oklch|clamp|translate|url)\(/.test(t)) return true; // CSS function
+  if (/^(calc|var|rgb|hsl|oklch|clamp|translate|url|linear-gradient|radial-gradient)\(/.test(t))
+    return true; // CSS function
+  if (/^use (client|strict|server)$/.test(t)) return true; // module directive
+  if (/\b\d+m?s\b/.test(t) && /\b(ease|linear|cubic-bezier|steps|infinite|alternate)\b/.test(t))
+    return true; // CSS transition / animation shorthand
   if (t.includes("--omnigent-")) return true; // CSS custom property
   if (/^omnigent[:.]/.test(t)) return true; // storage key
   if (/^[a-z-]+\/$/.test(t)) return true; // MIME prefix, e.g. "image/"

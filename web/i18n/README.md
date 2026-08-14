@@ -12,11 +12,24 @@
 
 ```bash
 cd web
-OMNIGENT_UI_LANG=zh-CN pnpm build            # 主应用
-OMNIGENT_UI_LANG=zh-CN pnpm run build:overlay # 桌面端更新浮层
+pnpm run build:zh                              # 主应用（= OMNIGENT_UI_LANG=zh-CN vite build）
+pnpm run dev:zh                                # 开发模式
+OMNIGENT_UI_LANG=zh-CN pnpm run build:overlay  # 桌面端更新浮层
 ```
 
-不设 `OMNIGENT_UI_LANG` 就是原版英文。开发模式同理：`OMNIGENT_UI_LANG=zh-CN pnpm dev`。
+不设 `OMNIGENT_UI_LANG` 就是原版英文。
+
+### 配合 `just dev`
+
+`just dev` 起的是 omnidev 开发 pod，它把 Vite 作为子进程拉起来并继承父进程环境，所以在命令前加变量即可：
+
+```bash
+OMNIGENT_UI_LANG=zh-CN just dev
+```
+
+omnidev 只注入 `OMNIGENT_DATA_DIR` / `OMNIGENT_DATABASE_URI` / `OMNIGENT_URL` /
+`OMNIGENT_CONFIG_HOME`，不会清空环境，因此 `OMNIGENT_UI_LANG` 会一路传到 Vite。
+想常驻中文就写进 shell 配置：`export OMNIGENT_UI_LANG=zh-CN`。
 
 ## 词表结构 (`zh-CN.json`)
 

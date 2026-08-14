@@ -1,6 +1,11 @@
 {
   "jsxText": {
     "Cancel": "取消",
+    "(current agent)": "(当前智能体)",
+    "(same as original session)": "(与原会话相同)",
+    "all of its sessions": "其全部会话",
+    "commented on": "评论了",
+    "working directory": "工作目录",
     "Loading…": "加载中…",
     "Delete": "删除",
     "Close": "关闭",
@@ -354,6 +359,11 @@
   },
   "attr": {
     "Close": "关闭",
+    "command (e.g. npx)": "命令 (例如 npx)",
+    "e.g. main": "例如 main",
+    "files to exclude": "要排除的文件",
+    "files to include": "要包含的文件",
+    "notebook output": "notebook 输出",
     "Copy": "复制",
     "Base branch": "基准分支",
     "Close search": "关闭搜索",
@@ -659,6 +669,7 @@
     "<MessageSquareOffIcon/> Save your changes to enable commenting on selections.": [
       "保存更改后才能对选中内容添加评论。"
     ],
+    "<MessageSquareOffIcon/> {} commenting is available once saved.": [" 保存后即可评论。"],
     "<MessageSquarePlusIcon/> Add comment": ["添加评论"],
     "<MessagesSquareIcon/> Chat": ["聊天"],
     "<Minimize2Icon/> Collapse all": ["全部折叠"],
@@ -812,6 +823,7 @@
     "View archived sessions in {} <Link/>": ["在此查看已归档的会话: "],
     "Waiting for output {}": ["等待输出 "],
     "cwd: {} <code/>": ["工作目录:"],
+    "{} % of context used.": [" % 的上下文已使用。"],
     "{} Advanced settings": [" 高级设置"],
     "{} Connect another host from your terminal": [" 从终端连接另一台主机"],
     "{} Terminal": [" 终端"],
@@ -829,6 +841,7 @@
     "{} keeps working until this condition is met. Progress and completion appear in the conversation.": [
       " 会持续工作，直到满足此条件。进度和完成情况会显示在对话中。"
     ],
+    "{} match {} in hidden directories. {} <button/>": [" 个匹配 ", " 位于隐藏目录中。"],
     "{} needs Codex authentication on {} — run <code/> on that machine.": [
       " 需要在 ",
       " 上完成 Codex 认证 —— 请在该机器上运行 ",
@@ -892,6 +905,9 @@
       "Max": "最高",
       "Medium": "中",
       "Model": "模型"
+    },
+    "components/HostBadge.tsx": {
+      "status unknown": "状态未知"
     },
     "components/ImageLightbox.tsx": {
       "Image preview": "图片预览",
@@ -984,6 +1000,7 @@
       "Skill": "技能"
     },
     "components/blocks/SmartRoutingCard.tsx": {
+      "sizing up": "正在评估",
       "No routing decision was recorded for this fan-out.": "本次分发没有记录路由决策。",
       "· unavailable": "· 不可用"
     },
@@ -992,6 +1009,9 @@
       "Unknown error": "未知错误",
       "· advisory": "· 建议",
       "· applied": "· 已应用"
+    },
+    "components/blocks/TerminalCommandCard.tsx": {
+      "(no output)": "(无输出)"
     },
     "components/blocks/TerminalView.tsx": {
       "Couldn't resume session.": "无法恢复会话。",
@@ -1063,7 +1083,12 @@
       "Search for a command to run...": "搜索要执行的命令..."
     },
     "hooks/useBrowserAgentRelay.ts": {
-      "No browser open": "没有打开的浏览器"
+      "No browser open": "没有打开的浏览器",
+      "click failed": "点击失败",
+      "navigate failed": "导航失败",
+      "snapshot failed": "快照失败",
+      "type failed": "输入失败",
+      "url is required": "需要提供 URL"
     },
     "hooks/useHostFilesystem.ts": {
       "Couldn't verify the working directory. Check your connection and try again.": "无法校验工作目录。请检查网络连接后重试。"
@@ -1087,6 +1112,9 @@
     },
     "hooks/useResizableSidebar.ts": {
       "Resize sidebar": "调整侧边栏宽度"
+    },
+    "hooks/useWorkspaceChangedFiles.ts": {
+      "runner offline": "运行器离线"
     },
     "lib/accountsApi.ts": {
       "Admin permission required.": "需要管理员权限。",
@@ -1114,7 +1142,14 @@
       "Clipboard API not available": "剪贴板 API 不可用"
     },
     "lib/dictation.ts": {
-      "Dictation connection closed": "语音输入连接已关闭"
+      "Dictation connection closed": "语音输入连接已关闭",
+      "dictation connection closed": "语音输入连接已关闭",
+      "dictation connection failed": "语音输入连接失败"
+    },
+    "lib/harnessSetup.ts": {
+      "binary missing": "缺少可执行文件",
+      "needs auth": "需要认证",
+      "needs setup": "需要配置"
     },
     "lib/scheduleBuilder.ts": {
       "Enter a valid minute from 0 to 59.": "请输入 0 到 59 之间的有效分钟数。",
@@ -1148,6 +1183,9 @@
       "Wednesday": "星期三",
       "Weekdays": "工作日",
       "Weekends": "周末"
+    },
+    "lib/smartRoutingAvailability.ts": {
+      "the default agent": "默认智能体"
     },
     "lib/sse.ts": {
       "Denied by policy": "被策略拒绝"
@@ -1217,6 +1255,7 @@
       "Missing session or elicitation ID": "缺少会话 ID 或问询 ID"
     },
     "pages/ChatPage.tsx": {
+      "agent default": "智能体默认值",
       "(Context window size unknown)": "(上下文窗口大小未知)",
       "Agent disconnected — click to reconnect": "智能体已断开 —— 点击重新连接",
       "Ask the agent anything…": "问智能体任何问题…",
@@ -1258,7 +1297,9 @@
       "Working…": "处理中…"
     },
     "pages/InboxPage.tsx": {
-      "You": "你"
+      "You": "你",
+      "1 approval": "1 条审批",
+      "1 comment": "1 条评论"
     },
     "pages/LoginPage.tsx": {
       "Sign in": "登录",
@@ -1339,6 +1380,9 @@
       "All": "全部",
       "Paused": "已暂停"
     },
+    "pages/TurnRail.tsx": {
+      "(no text)": "(无文本)"
+    },
     "shell/AddAgentDialog.tsx": {
       "Add": "添加",
       "Adding…": "添加中…",
@@ -1366,6 +1410,9 @@
       "Unable to render image.": "无法渲染图片。"
     },
     "shell/CommandPalette.tsx": {
+      "needs response": "待回复",
+      "new session": "新建会话",
+      "sessions list": "会话列表",
       "Go to Automations": "前往自动化",
       "Go to Inbox": "前往收件箱",
       "Go to Settings": "前往设置",
@@ -1433,6 +1480,10 @@
       "Unknown error": "未知错误"
     },
     "shell/ForkSessionDialog.tsx": {
+      "blank to start in the picked directory.": "留空则在所选目录中开始。",
+      "different git branch": "不同的 git 分支",
+      "git branch": "git 分支",
+      "the original agent": "原智能体",
       "Clone": "克隆",
       "Clone & start": "克隆并启动",
       "Clone session": "克隆会话",
@@ -1450,6 +1501,7 @@
       "Couldn't copy — select and copy manually.": "复制失败 —— 请手动选中并复制。"
     },
     "shell/HarnessSetupDialog.tsx": {
+      "this agent": "此智能体",
       "Cancel": "取消",
       "Close": "关闭",
       "Copied to clipboard.": "已复制到剪贴板。",
@@ -1485,6 +1537,7 @@
       "Unable to render 3D model.": "无法渲染 3D 模型。"
     },
     "shell/NewChatDialog.tsx": {
+      "this machine": "这台机器",
       "(detached)": "(游离)",
       "Accept edits": "接受修改",
       "Agent Harness": "智能体载体",
@@ -1810,7 +1863,8 @@
       "Remove ${}": ["移除 ", null],
       "Starting MCP server: ${}…": ["正在启动 MCP 服务器: ", null],
       "Starting MCP servers (${}/${}): ${}": ["正在启动 MCP 服务器 (", null, null, null],
-      "Unknown command: ${}. Available: ${}": [null, "。可用命令: ", null]
+      "Unknown command: ${}. Available: ${}": [null, "。可用命令: ", null],
+      "${}% of context used": [null, "% 的上下文已使用"]
     },
     "pages/PoliciesPage.tsx": {
       "Toggle ${}": ["切换 ", null]
