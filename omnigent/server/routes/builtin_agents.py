@@ -35,6 +35,36 @@ from omnigent.stores import AgentStore
 _logger = logging.getLogger(__name__)
 
 
+def _visible(agents: list[Agent]) -> list[Agent]:
+    """Drop native-wrapper agents whose harness this deployment hides.
+
+    Seeding already skips hidden harnesses, but a row seeded before the
+    harness was hidden is deliberately left in place — deleting agent rows
+    would cascade into conversation history. Filtering on read is what makes
+    hiding take effect on an existing install rather than only a fresh one.
+
+    Pagination cursors are computed from the unfiltered page, so a page may
+    come back shorter than ``limit``; the built-in set is small enough that
+    paging through it is not a real scenario.
+
+    :param agents: One page of built-in agents.
+    :returns: The same order, minus hidden native wrappers.
+    """
+    from omnigent.harness_plugins import hidden_harnesses
+    from omnigent.native_coding_agents import native_coding_agent_for_agent_name
+
+    hidden = hidden_harnesses()
+    if not hidden:
+        return agents
+    kept: list[Agent] = []
+    for agent in agents:
+        native = native_coding_agent_for_agent_name(agent.name)
+        if native is not None and native.harness in hidden:
+            continue
+        kept.append(agent)
+    return kept
+
+
 def _to_agent_object(agent: Agent, agent_cache: AgentCache) -> AgentObject:
     """
     Convert a runtime Agent entity to an API-layer AgentObject.
@@ -161,7 +191,7 @@ def create_builtin_agents_router(
         _require_user(request, auth_provider)
         page = agent_store.list(limit=limit, after=after, before=before, order=order)
         return PaginatedList(
-            data=[_to_agent_object(a, agent_cache) for a in page.data],
+            data=[_to_agent_object(a, agent_cache) for a in _visible(page.data)],
             first_id=page.first_id,
             last_id=page.last_id,
             has_more=page.has_more,

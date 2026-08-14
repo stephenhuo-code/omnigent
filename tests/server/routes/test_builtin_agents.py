@@ -8,6 +8,7 @@ test agent directly via the agent_store to verify the endpoint works.
 from __future__ import annotations
 
 import httpx
+import pytest
 import pytest_asyncio
 
 from omnigent.db.utils import builtin_agent_id, generate_agent_id
@@ -87,3 +88,37 @@ async def test_builtin_flag_distinguishes_seeded_from_registered(
     by_id = {a["id"]: a for a in resp.json()["data"]}
     assert by_id[seeded_id]["builtin"] is True
     assert by_id[registered_id]["builtin"] is False
+
+
+async def test_hidden_harness_row_is_withheld_from_the_list(
+    client: httpx.AsyncClient,
+    db_uri: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A card seeded before its harness was hidden stops being listed.
+
+    Seeding skips hidden harnesses, but rows already in the database are
+    left alone on purpose — deleting them would cascade into conversation
+    history. Without this read-side filter, hiding would only ever work on
+    a fresh install, which is the case a fresh-database test misses.
+    """
+    agent_store = SqlAlchemyAgentStore(db_uri)
+    agent_store.create(
+        builtin_agent_id("claude-native-ui"),
+        name="claude-native-ui",
+        bundle_location="test:///bundle",
+    )
+    agent_store.create(
+        builtin_agent_id("codex-native-ui"),
+        name="codex-native-ui",
+        bundle_location="test:///bundle",
+    )
+
+    monkeypatch.delenv("OMNIGENT_HIDDEN_HARNESSES", raising=False)
+    names = {a["name"] for a in (await client.get("/v1/agents?limit=100")).json()["data"]}
+    assert {"claude-native-ui", "codex-native-ui"} <= names
+
+    monkeypatch.setenv("OMNIGENT_HIDDEN_HARNESSES", "claude-sdk,claude-native")
+    names = {a["name"] for a in (await client.get("/v1/agents?limit=100")).json()["data"]}
+    assert "claude-native-ui" not in names
+    assert "codex-native-ui" in names
