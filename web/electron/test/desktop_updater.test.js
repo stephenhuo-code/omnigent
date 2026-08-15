@@ -303,7 +303,7 @@ describe("desktop_updater — IPC trust + consent", () => {
     h.updater.registerIpc();
     await h.ipcHandlers.get("omnigent:update-download")(h.event);
     assert.equal(h.calls.showMessageBox.length, 1);
-    assert.equal(h.calls.showMessageBox[0].options.message, "下载 Omnigent 更新？");
+    assert.equal(h.calls.showMessageBox[0].options.message, "下载 Omni-Agent 更新？");
     assert.equal(h.calls.downloadUpdate, 1);
 
     // set-config
@@ -311,7 +311,7 @@ describe("desktop_updater — IPC trust + consent", () => {
     h.updater.init();
     h.updater.registerIpc();
     await h.ipcHandlers.get("omnigent:set-update-config")(h.event, { mode: "manual" });
-    assert.equal(h.calls.showMessageBox[0].options.message, "更改 Omnigent 更新设置？");
+    assert.equal(h.calls.showMessageBox[0].options.message, "更改 Omni-Agent 更新设置？");
     assert.equal(h.readSettings().update_mode, "manual");
   });
 

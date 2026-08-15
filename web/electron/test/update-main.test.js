@@ -63,6 +63,9 @@ function loadMainHarness({
     app: {
       isPackaged: false,
       getPath: (name) => (name === "userData" ? userData : userData),
+      // main.js pins userData to the pre-rebrand directory before renaming the
+      // app, so the fake has to accept the write the same way Electron does.
+      setPath: () => {},
       setName: () => {},
       requestSingleInstanceLock: () => true,
       on: (name, listener) => appEvents.set(name, listener),
@@ -280,7 +283,7 @@ describe("auto-update main-process wiring", () => {
       {
         channel: "omnigent:update-download",
         args: [],
-        message: "下载 Omnigent 更新？",
+        message: "下载 Omni-Agent 更新？",
         prepare: () => {},
         assertRan: (harness) => {
           assert.equal(harness.calls.downloadUpdate, 1);
@@ -289,7 +292,7 @@ describe("auto-update main-process wiring", () => {
       {
         channel: "omnigent:update-install",
         args: [],
-        message: "重启 Omnigent 以安装更新？",
+        message: "重启 Omni-Agent 以安装更新？",
         prepare: (harness) => {
           harness.autoUpdater.emit("update-downloaded", { version: "0.4.0" });
         },
@@ -301,7 +304,7 @@ describe("auto-update main-process wiring", () => {
       {
         channel: "omnigent:set-update-config",
         args: [{ mode: "manual" }],
-        message: "更改 Omnigent 更新设置？",
+        message: "更改 Omni-Agent 更新设置？",
         prepare: () => {},
         assertRan: (harness) => {
           assert.equal(harness.readSettings().update_mode, "manual");
@@ -325,7 +328,7 @@ describe("auto-update main-process wiring", () => {
 
       assert.equal(harness.calls.showMessageBox.length, 1, item.channel);
       assert.equal(harness.calls.showMessageBox[0].win, harness.api.windows.keys().next().value);
-      assert.equal(harness.calls.showMessageBox[0].options.title, "Omnigent");
+      assert.equal(harness.calls.showMessageBox[0].options.title, "Omni-Agent");
       assert.equal(harness.calls.showMessageBox[0].options.message, item.message);
       assert.deepEqual(plain(harness.calls.showMessageBox[0].options.buttons), [
         "不允许",

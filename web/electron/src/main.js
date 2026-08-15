@@ -1003,7 +1003,7 @@ function createWindow(targetUrl, opts = {}) {
     // Tall enough that the bundled setup page (logo, Start-locally, divider,
     // URL field, Connect, and a few recents) fits without overflowing.
     minHeight: 600,
-    title: "Omnigent",
+    title: "Omni-Agent",
     backgroundColor: "#0b0b0c",
     // macOS: hide the native title bar but keep the traffic lights, inset
     // into the content. The web layer provides the drag surface + clearance
@@ -1511,8 +1511,8 @@ async function confirmHostEnrollment(win) {
   const { response } = await dialog.showMessageBox(win, {
     type: "warning",
     icon: icon.isEmpty() ? undefined : icon,
-    title: "Omnigent",
-    message: `允许 ${host} 管理这台机器上的 Omnigent？`,
+    title: "Omni-Agent",
+    message: `允许 ${host} 管理这台机器上的 Omni-Agent？`,
     detail:
       `${pinned} 请求把这台机器接入为运行器。接入后，它可以代表该服务器 ` +
       `在这里执行智能体代码和命令。\n\n` +
@@ -1764,16 +1764,16 @@ function buildMenu() {
           if (status.state === "none") {
             await dialog.showMessageBox(activeWindow(), {
               type: "info",
-              title: "Omnigent",
+              title: "Omni-Agent",
               message: "已是最新版本！",
-              detail: `Omnigent ${app.getVersion()} is the latest version.`,
+              detail: `Omni-Agent ${app.getVersion()} 已是最新版本。`,
               buttons: ["OK"],
             });
           }
         } catch (err) {
           await dialog.showMessageBox(activeWindow(), {
             type: "warning",
-            title: "Omnigent",
+            title: "Omni-Agent",
             message: "无法检查更新",
             detail: String(err?.message ?? err),
             buttons: ["OK"],
@@ -1794,7 +1794,7 @@ function buildMenu() {
         if (!updater.installUpdateNow()) {
           await dialog.showMessageBox(activeWindow(), {
             type: "info",
-            title: "Omnigent",
+            title: "Omni-Agent",
             message: "没有可安装的更新",
             detail: "请先检查更新，然后下载新版本。",
             buttons: ["OK"],
@@ -2343,7 +2343,7 @@ function registerIpc() {
     }
     const win = BrowserWindow.fromWebContents(event.sender) ?? activeWindow();
     const result = await dialog.showOpenDialog(win ?? undefined, {
-      title: "定位 Omnigent CLI 可执行文件",
+      title: "定位 Omni-Agent CLI 可执行文件",
       properties: ["openFile"],
     });
     if (result.canceled || result.filePaths.length === 0) return null;
@@ -2607,10 +2607,10 @@ async function confirmOpenDeepLink(parent, targetOrigin) {
   const { response } = await dialog.showMessageBox(parent, {
     type: "warning",
     icon: icon.isEmpty() ? undefined : icon,
-    title: "Omnigent",
-    message: `要打开这个 Omnigent 链接吗？`,
+    title: "Omni-Agent",
+    message: `要打开这个 Omni-Agent 链接吗？`,
     detail:
-      `此链接会把 Omnigent 连接到 ${host} 并打开一个对话。\n\n` +
+      `此链接会把 Omni-Agent 连接到 ${host} 并打开一个对话。\n\n` +
       `请仅打开来自你信任的服务器的链接 —— 连接后，它可以显示通知，` +
       `并在你允许时把这台机器作为运行器管理。`,
     buttons: ["取消", "打开"],
@@ -2776,7 +2776,11 @@ async function handleDeepLink(raw) {
 // ---------------------------------------------------------------------------
 
 // Name drives the macOS app menu title and the notification source name.
-app.setName("Omnigent");
+// Electron derives userData from the app name, so renaming would strand
+// settings.json in the pre-rebrand directory. Pin the original location
+// first, then rename — the menu reads Omni-Agent, the data stays put.
+app.setPath("userData", path.join(app.getPath("appData"), "Omnigent"));
+app.setName("Omni-Agent");
 
 // Single-instance: focus the existing window instead of opening a second.
 const gotLock = app.requestSingleInstanceLock();

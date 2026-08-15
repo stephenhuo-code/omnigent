@@ -85,7 +85,7 @@
     "(admin)": "(管理员)",
     "(unread)": "(未读)",
     "↵ open · ⇥ attach": "↵ 打开 · ⇥ 附加",
-    "A new version of Omnigent is available.": "Omnigent 有新版本可用。",
+    "A new version of Omnigent is available.": "Omni-Agent 有新版本可用。",
     "A single-use invite URL will be created. Share it with the person you want to add. They'll choose their own username and password when they redeem it.": "系统将生成一个一次性邀请链接。把它发给你要邀请的人，对方在兑换时会自行设置用户名和密码。",
     "Actions": "操作",
     "Active": "活跃",
@@ -276,7 +276,7 @@
     "Route through an OpenAI-compatible proxy (e.g. OpenRouter).": "通过兼容 OpenAI 的代理转发 (例如 OpenRouter)。",
     "Run agent sessions on a recurring schedule. Tasks fire on a connected host.": "按重复的时间表运行智能体会话。任务会在已连接的主机上触发。",
     "Runs with": "运行于",
-    "Scan with your phone's camera to open this session in the Omnigent app.": "用手机相机扫码，即可在 Omnigent App 中打开此会话。",
+    "Scan with your phone's camera to open this session in the Omnigent app.": "用手机相机扫码，即可在 Omni-Agent App 中打开此会话。",
     "Search": "搜索",
     "Select a host first.": "请先选择主机。",
     "Selection:": "选中:",
@@ -289,7 +289,7 @@
     "Set text across the desktop interface. Icons and spacing stay fixed.": "设置桌面界面的文字大小。图标和间距保持不变。",
     "Set up auth": "配置认证",
     "Share this session": "分享此会话",
-    "Sharing has been disabled for this Omnigent server.": "此 Omnigent 服务器已禁用分享功能。",
+    "Sharing has been disabled for this Omnigent server.": "此 Omni-Agent 服务器已禁用分享功能。",
     "Sharing unavailable": "分享不可用",
     "Shell not available.": "终端不可用。",
     "Show hidden files": "显示隐藏文件",
@@ -308,7 +308,7 @@
     "Switch to the source view to inspect the raw file.": "切换到源码视图可查看原始文件。",
     "System instructions": "系统指令",
     "The keyboard shortcuts available in the chat.": "聊天中可用的键盘快捷键。",
-    "The Omnigent CLI wasn't found. Install it, then set its path from the connect screen:": "未找到 Omnigent CLI。请先安装，然后在连接界面中设置它的路径:",
+    "The Omnigent CLI wasn't found. Install it, then set its path from the connect screen:": "未找到 Omni-Agent CLI。请先安装，然后在连接界面中设置它的路径:",
     "The original session's host is offline, so there's nothing to launch a runner on. Reconnect it from your terminal — then send your message again to pick a directory.": "原会话的主机已离线，没有可启动运行器的机器。请在终端中重新连接它 —— 然后再次发送消息以选择目录。",
     "The sharing mode is managed by this deployment and can't be changed here.": "分享模式由本部署统一管理，无法在此修改。",
     "The URL you followed doesn't match any route in this app.": "你访问的网址与本应用的任何路由都不匹配。",
@@ -343,7 +343,7 @@
     "Users are provisioned automatically on first sign-in through your identity provider. This list is read-only.": "用户会在首次通过你的身份提供方登录时自动创建。此列表为只读。",
     "Uses this agent&apos;s default model, effort, and permission settings": "使用此智能体默认的模型、思考强度和权限设置",
     "Verdict": "结论",
-    "Welcome to Omnigent.": "欢迎使用 Omnigent。",
+    "Welcome to Omnigent.": "欢迎使用 Omni-Agent。",
     "What should we work on?": "我们来做点什么？",
     "When an agent needs your input or someone comments on a file, it will show up here.": "当智能体需要你的输入，或有人对文件发表评论时，会显示在这里。",
     "Working folder": "工作目录",
@@ -354,10 +354,11 @@
     "You don't have permission to manage members.": "你没有管理成员的权限。",
     "You don't have permission to manage session sharing.": "你没有管理会话分享的权限。",
     "You have read-only access to this session.": "你对此会话只有只读权限。",
-    "You were invited to join this Omnigent server.": "你被邀请加入此 Omnigent 服务器。",
+    "You were invited to join this Omnigent server.": "你被邀请加入此 Omni-Agent 服务器。",
     "Your edits will be lost if you leave without saving.": "如果不保存就离开，你的修改将会丢失。"
   },
   "attr": {
+    "Omnigent": "Omni-Agent",
     "Close": "关闭",
     "command (e.g. npx)": "命令 (例如 npx)",
     "e.g. main": "例如 main",
@@ -444,7 +445,7 @@
     "Cancel new folder": "取消新建文件夹",
     "Cancel rename": "取消重命名",
     "Changed": "已更改",
-    "Choose how Omnigent looks on this device.": "选择 Omnigent 在此设备上的外观。",
+    "Choose how Omnigent looks on this device.": "选择 Omni-Agent 在此设备上的外观。",
     "Choose shell": "选择终端",
     "Click to zoom": "点击放大",
     "Close directory browser": "关闭目录浏览器",
@@ -457,7 +458,7 @@
     "Color theme": "配色主题",
     "Column options": "列选项",
     "Command palette": "命令面板",
-    "Configure how Omnigent works with Git.": "配置 Omnigent 与 Git 的协作方式。",
+    "Configure how Omnigent works with Git.": "配置 Omni-Agent 与 Git 的协作方式。",
     "Configure session": "配置会话",
     "Confirm new password": "确认新密码",
     "Connect a gateway": "连接网关",
@@ -470,7 +471,7 @@
     "Decrease interface font size": "减小界面字号",
     "Default base branch": "默认基准分支",
     "Delete session": "删除会话",
-    "Desktop app update preferences for this installed Omnigent shell.": "此 Omnigent 桌面客户端的更新偏好设置。",
+    "Desktop app update preferences for this installed Omnigent shell.": "此 Omni-Agent 桌面客户端的更新偏好设置。",
     "Desktop update": "桌面端更新",
     "Dismiss delete error": "忽略删除错误",
     "Edit queued message": "编辑排队中的消息",
@@ -536,7 +537,7 @@
     "Project name…": "项目名称…",
     "Projects": "项目",
     "Public access": "公开访问",
-    "QR code to open this session in the Omnigent app": "用于在 Omnigent App 中打开此会话的二维码",
+    "QR code to open this session in the Omnigent app": "用于在 Omni-Agent App 中打开此会话的二维码",
     "Quote": "引用",
     "Random worktree": "随机工作树",
     "Reasoning effort": "推理强度",
@@ -575,7 +576,7 @@
     "System default": "系统默认",
     "Task list": "任务清单",
     "Terminal theme": "终端主题",
-    "The Omnigent command-line tool this app uses to run a local server and connect this machine as a runner.": "本应用用来运行本地服务器、并把这台机器接入为运行器的 Omnigent 命令行工具。",
+    "The Omnigent command-line tool this app uses to run a local server and connect this machine as a runner.": "本应用用来运行本地服务器、并把这台机器接入为运行器的 Omni-Agent 命令行工具。",
     "The spawn asked for this model; Smart Routing picked the one on the right.": "该任务请求的是这个模型；智能路由选择了右侧的模型。",
     "Theme contrast": "主题对比度",
     "Toggle word wrap": "切换自动换行",
@@ -743,7 +744,7 @@
     "Delete {} session(s)": ["删除", " 个会话"],
     "Delete {} session(s)?": ["删除", " 个会话？"],
     "Description <Input/>": ["描述"],
-    "Downloading Omnigent update… {} %": ["正在下载 Omnigent 更新… ", "%"],
+    "Downloading Omnigent update… {} %": ["正在下载 Omni-Agent 更新… ", "%"],
     "Error loading file: {} {}": ["加载文件出错: "],
     "Error {} {}": ["错误"],
     "Error: {}": ["错误: "],
@@ -773,8 +774,8 @@
     ],
     "No changed files match \" {} \"": ["没有匹配 “", "” 的已更改文件"],
     "No files match \" {} \"": ["没有匹配 “", "” 的文件"],
-    "Omnigent {} is available": ["Omnigent ", " 可用"],
-    "Omnigent {} is ready to install": ["Omnigent ", " 已可安装"],
+    "Omnigent {} is available": ["Omni-Agent ", " 可用"],
+    "Omnigent {} is ready to install": ["Omni-Agent ", " 已可安装"],
     "On a fresh install you set the first admin's password yourself — no credential is auto-generated. A brand-new instance shows a Create-admin form instead of this one; the password can also be pre-seeded with {} <code/> .": [
       "全新安装时，首个管理员的密码由你自己设置 —— 系统不会自动生成凭据。全新实例显示的是「创建管理员」表单而不是本表单；密码也可以通过 ",
       " 预先注入。"
@@ -1198,6 +1199,7 @@
       "Tool": "工具"
     },
     "lib/themePalette.ts": {
+      "Omnigent": "Omni-Agent",
       "Arctic frost blues over polar-night neutrals.": "极地霜蓝，搭配极夜中性色。",
       "Clean neutrals with a signal blue.": "干净的中性色，点缀信号蓝。",
       "Moody purple with a pink pop.": "深沉紫色，跳跃粉色点缀。",
@@ -1255,6 +1257,7 @@
       "Missing session or elicitation ID": "缺少会话 ID 或问询 ID"
     },
     "pages/ChatPage.tsx": {
+      "Omnigent": "Omni-Agent",
       "agent default": "智能体默认值",
       "(Context window size unknown)": "(上下文窗口大小未知)",
       "Agent disconnected — click to reconnect": "智能体已断开 —— 点击重新连接",
@@ -1329,10 +1332,11 @@
       "Passwords don't match.": "两次输入的密码不一致。"
     },
     "pages/SettingsPage.tsx": {
+      "Omnigent": "Omni-Agent",
       "Automatic (check periodically, ask before installing)": "自动 (定期检查，安装前询问)",
       "Change password": "修改密码",
       "Changing…": "修改中…",
-      "Check when Omnigent starts": "在 Omnigent 启动时检查",
+      "Check when Omnigent starts": "在 Omni-Agent 启动时检查",
       "Collapsed": "已折叠",
       "Custom": "自定义",
       "Dark": "深色",
@@ -1393,7 +1397,7 @@
       "Missing element or prompt.": "缺少元素或提示词。",
       "No agent bound to this session yet.": "此会话尚未绑定智能体。",
       "Sent to agent.": "已发送给智能体。",
-      "Sharing has been disabled for this Omnigent server.": "此 Omnigent 服务器已禁用分享功能。",
+      "Sharing has been disabled for this Omnigent server.": "此 Omni-Agent 服务器已禁用分享功能。",
       "Sharing is unavailable from a local server.": "本地服务器不支持分享。"
     },
     "shell/ChatHeader.tsx": {
@@ -1642,7 +1646,7 @@
       "Rename": "重命名",
       "Renaming…": "重命名中…",
       "Shared sessions": "共享的会话",
-      "Sharing has been disabled for this Omnigent server.": "此 Omnigent 服务器已禁用分享功能。",
+      "Sharing has been disabled for this Omnigent server.": "此 Omni-Agent 服务器已禁用分享功能。",
       "Unarchive": "取消归档",
       "Unpin": "取消固定",
       "Unpin conversation": "取消固定对话"
@@ -1672,6 +1676,9 @@
       "Note": "注意",
       "Tip": "提示",
       "Warning": "小心"
+    },
+    "shell/TitleBarServerPicker.tsx": {
+      "Omnigent": "Omni-Agent"
     },
     "shell/ViewModeToggle.tsx": {
       "Chat view": "聊天视图",
