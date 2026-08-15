@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Omnigents — 连接</title>
+    <title>Omni-Agent — 连接</title>
     <style>
       /* Design tokens lifted from web/src/index.css (:root and .dark) so
          this bundled page matches the web UI it hands off to. */
@@ -352,8 +352,8 @@
       type="button"
       id="cli-gear"
       class="gear-btn"
-      aria-label="配置 Omnigent CLI"
-      title="配置 Omnigent CLI"
+      aria-label="配置 Omni-Agent CLI"
+      title="配置 Omni-Agent CLI"
       hidden
     >
       <svg
@@ -380,9 +380,9 @@
           srcset="../../platform-assets/logos/omnigents-logo-reverse.svg"
           media="(prefers-color-scheme: dark)"
         />
-        <img class="logo" src="../../platform-assets/logos/omnigents-logo.svg" alt="Omnigents" />
+        <img class="logo" src="../../platform-assets/logos/omnigents-logo.svg" alt="Omni-Agent" />
       </picture>
-      <p class="sub">在这台机器上运行 Omnigents 服务器，或连接到已有的服务器。</p>
+      <p class="sub">在这台机器上运行 Omni-Agent 服务器，或连接到已有的服务器。</p>
       <div id="local-section">
         <!-- Always enabled: when the CLI is missing this opens the settings
              modal (install / set path) instead of failing to start. -->
@@ -409,8 +409,8 @@
 
     <!-- Omnigent CLI settings, opened from the gear. Hidden by default. -->
     <div class="modal-overlay" id="cli-modal" hidden>
-      <div class="modal" role="dialog" aria-modal="true" aria-label="Omnigent CLI 设置">
-        <p class="modal-title">Omnigent CLI</p>
+      <div class="modal" role="dialog" aria-modal="true" aria-label="Omni-Agent CLI 设置">
+        <p class="modal-title">Omni-Agent CLI</p>
         <p class="cli-note" id="cli-status"></p>
         <div id="cli-install" hidden>
           <p>
@@ -418,13 +418,13 @@
               href="https://omnigent.ai/quickstart/install#install-omnigent"
               target="_blank"
               rel="noreferrer"
-              >Install the Omnigent CLI ↗</a
+              >安装 Omni-Agent CLI ↗</a
             >
           </p>
           <p>已经安装过了？重新检测，或在下方设置路径。</p>
           <button type="button" id="cli-redetect">重新检测</button>
         </div>
-        <p id="cli-path-label">Omnigent CLI 的路径</p>
+        <p id="cli-path-label">Omni-Agent CLI 的路径</p>
         <div class="path-row">
           <input
             id="cli-path"
@@ -617,8 +617,8 @@
         cliStatus.textContent = installed
           ? status.version
             ? `已找到: ${status.version}`
-            : "已找到 Omnigent CLI。"
-          : "未找到 Omnigent CLI。";
+            : "已找到 Omni-Agent CLI。"
+          : "未找到 Omni-Agent CLI。";
         cliPathInput.placeholder = status.path || "/path/to/omni";
         // Draw the eye to the (otherwise quiet) gear when the CLI is missing.
         cliGear.classList.toggle("attention", !installed);
@@ -642,7 +642,7 @@
         if (result && result.accepted) {
           cliPathNote.textContent = result.version
             ? `已找到: ${result.version}`
-            : "已找到 Omnigent CLI。";
+            : "已找到 Omni-Agent CLI。";
           // Clear the value so the field reverts to showing the (now-updated)
           // resolved path as its placeholder.
           cliPathInput.value = "";
@@ -650,7 +650,7 @@
           return true;
         }
         cliPathNote.className = "cli-note bad";
-        cliPathNote.textContent = "该路径不是可运行的 Omnigent CLI。";
+        cliPathNote.textContent = "该路径不是可运行的 Omni-Agent CLI。";
         return false;
       }
 

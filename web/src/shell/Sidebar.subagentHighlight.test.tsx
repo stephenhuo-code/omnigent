@@ -151,7 +151,12 @@ describe("sidebar highlight while viewing a sub-agent", () => {
     const wordmark = screen.getByTestId("sidebar-wordmark");
     expect(wordmark).toHaveAttribute("alt", "Omnigent");
     expect(wordmark).toHaveClass("h-[15px]", "dark:invert");
-    expect(wordmark.getAttribute("src")).toContain("omnigent-wordmark");
+    // The asset is an SVG, but whether Vite serves it by URL or inlines it as a
+    // data URI depends on its size against the 4 KB inline threshold. Assert on
+    // what the test is actually about — an image, not styled text — so trimming
+    // or redrawing the wordmark can't break it.
+    const src = wordmark.getAttribute("src") ?? "";
+    expect(src.includes("omnigent-wordmark") || src.startsWith("data:image/svg+xml")).toBe(true);
   });
 
   it("sits flush to the window edge, no floating margin or border", () => {

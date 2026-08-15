@@ -289,16 +289,16 @@ function createDesktopUpdater({
 
     const copy = {
       download: {
-        message: "下载 Omnigent 更新？",
-        detail: `${host} 请求为此 Omnigent 应用下载桌面端更新。\n\n请仅允许你信任的服务器。`,
+        message: "下载 Omni-Agent 更新？",
+        detail: `${host} 请求为此 Omni-Agent 应用下载桌面端更新。\n\n请仅允许你信任的服务器。`,
       },
       install: {
-        message: "重启 Omnigent 以安装更新？",
-        detail: `${host} 请求重启 Omnigent 并安装已下载的桌面端更新。\n\n请仅允许你信任的服务器。`,
+        message: "重启 Omni-Agent 以安装更新？",
+        detail: `${host} 请求重启 Omni-Agent 并安装已下载的桌面端更新。\n\n请仅允许你信任的服务器。`,
       },
       config: {
-        message: "更改 Omnigent 更新设置？",
-        detail: `${host} 请求更改此 Omnigent 应用检查和安装更新的方式。\n\n请仅允许你信任的服务器。`,
+        message: "更改 Omni-Agent 更新设置？",
+        detail: `${host} 请求更改此 Omni-Agent 应用检查和安装更新的方式。\n\n请仅允许你信任的服务器。`,
       },
     }[action];
     if (!copy) return false;
@@ -307,7 +307,7 @@ function createDesktopUpdater({
     const { response } = await dialog.showMessageBox(win, {
       type: "warning",
       icon: icon.isEmpty() ? undefined : icon,
-      title: "Omnigent",
+      title: "Omni-Agent",
       message: copy.message,
       detail: copy.detail,
       buttons: ["不允许", "允许一次"],
