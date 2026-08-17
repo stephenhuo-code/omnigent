@@ -10,6 +10,40 @@ from __future__ import annotations
 from typing import Any
 
 READ_ONLY = "read_only"
+WRITE_PROBE = "write_probe"
+
+
+def probe_actions() -> list[dict[str, Any]]:
+    """Return the write probes the self-check performs.
+
+    :returns: Probe descriptors, each with ``action`` and ``persists``.
+    """
+    # A probe lands only when the boundary is already broken — the worst moment
+    # for it to be destructive. Every probe here must leave no residue.
+    return [
+        {"action": "set_description_on_own_probe_asset", "persists": False},
+        {"action": "validate_only_lineage_edge", "persists": False},
+    ]
+
+
+def compare_permissions(
+    *,
+    required: set[str],
+    granted: set[str],
+) -> dict[str, Any]:
+    """Compare what a bot was granted against what its role requires.
+
+    :param required: The permissions the role needs.
+    :param granted: The permissions the bot actually holds.
+    :returns: Report with ``passed``, ``excess``, and ``missing``.
+    """
+    excess = sorted(granted - required)
+    missing = sorted(required - granted)
+    return {
+        "passed": not excess and not missing,
+        "excess": excess,
+        "missing": missing,
+    }
 
 
 def evaluate(
@@ -27,10 +61,17 @@ def evaluate(
     over_privileged = [
         probe["bot"]
         for probe in observed
-        if expected.get(str(probe["bot"])) == READ_ONLY and not probe["refused"]
+        if probe["action"] == WRITE_PROBE
+        and expected.get(str(probe["bot"])) == READ_ONLY
+        and not probe["refused"]
     ]
+    # A read probe that merely succeeded says nothing about the boundary. A bot
+    # with no negative probe is unproven, which is not the same as compliant.
+    probed = {probe["bot"] for probe in observed if probe["action"] == WRITE_PROBE}
+    unproven = [bot for bot in expected if bot not in probed]
     return {
-        "passed": not over_privileged,
+        "passed": not over_privileged and not unproven,
         "probes": observed,
         "over_privileged": over_privileged,
+        "unproven": unproven,
     }

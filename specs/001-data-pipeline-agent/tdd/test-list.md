@@ -133,11 +133,11 @@ profile 记录的 `acceptance` 是 `uv run pytest tests/e2e_ui`——Playwright 
 | --- | --- | --- | --- | --- | --- |
 | U33 | 只读 bot 的写探测被拒时,该项判通过 | FR-074 | example | DONE | `tests/tools/pipely/test_bot_selfcheck.py::test_readonly_bot_write_probe_refused_passes_the_selfcheck` |
 | U34 | **只读 bot 的写探测未被拒时,该项判失败且该 bot 进入越权清单** | FR-074, SC-025 | example | DONE | `tests/tools/pipely/test_bot_selfcheck.py::test_readonly_bot_write_probe_not_refused_fails_the_selfcheck` |
-| U35 | 仅"令牌可用"而未执行负向探测时不算通过 | FR-074 | example | PENDING | |
-| U36 | 权限恰好等于职责所需时判通过(边界:等于) | FR-075 | example | PENDING | |
-| U37 | 权限宽于职责所需时判失败并列出多出的具体项(边界:大于) | FR-075 | example | PENDING | |
-| U38 | 权限窄于职责所需时判失败并列出缺失的具体项(边界:小于) | FR-075 | example | PENDING | |
-| U39 | 负向探测选用无害动作,执行后目录状态无变化 | FR-074 | example | PENDING | |
+| U35 | 仅"令牌可用"而未执行负向探测时不算通过 | FR-074 | example | DONE | `tests/tools/pipely/test_bot_selfcheck.py::test_a_bot_with_no_write_probe_at_all_does_not_pass` |
+| U36 | 权限恰好等于职责所需时判通过(边界:等于) | FR-075 | example | DONE | `tests/tools/pipely/test_bot_selfcheck.py::test_permissions_matching_the_role_exactly_pass` |
+| U37 | 权限宽于职责所需时判失败并列出多出的具体项(边界:大于) | FR-075 | example | DONE | `tests/tools/pipely/test_bot_selfcheck.py::test_permissions_wider_than_the_role_name_the_extra_ones` |
+| U38 | 权限窄于职责所需时判失败并列出缺失的具体项(边界:小于) | FR-075 | example | DONE | `tests/tools/pipely/test_bot_selfcheck.py::test_permissions_narrower_than_the_role_name_the_absent_ones` |
+| U39 | 负向探测选用无害动作,执行后目录状态无变化 | FR-074 | example | DONE(**部分**) | `tests/tools/pipely/test_bot_selfcheck.py::test_every_write_probe_declares_that_it_leaves_no_residue` —— 单元层只钉住"每个探测声明不落盘";"调用前后目录状态无变化"需真实目录,已并入集成行为 A 系列 |
 
 ### `omnigent/tools/pipely/verify_governance.py`
 

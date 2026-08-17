@@ -467,3 +467,42 @@ E   assert [] != []
 - **绿**:`check_environment` 按 `FORBIDDEN_ENV_NAMES` 判定,断言的是**存在即拒**而非"未被使用"——
   有 shell 的 Agent 能读到整个进程环境,只有"不出现"才是成立的边界。34 passed。
 - **重构**:无需重构。
+
+## Cycle 36 · U35 · 仅"令牌可用"不算通过
+
+- **测试**:`tests/tools/pipely/test_bot_selfcheck.py::test_a_bot_with_no_write_probe_at_all_does_not_pass`
+- **红**:`-k no_write_probe` → `KeyError: 'unproven'`
+- **绿**:把"未被证明"与"越权"分开报:只做了读探测的 bot 进 `unproven`,`passed` 要求两者都空。35 passed。
+- **重构**:无需重构。
+
+## Cycle 37 · U36 · 权限恰好等于职责所需时判通过
+
+- **测试**:`::test_permissions_matching_the_role_exactly_pass`
+- **红**:`-k exactly_pass` → `assert False is True`(桩一律不通过)
+- **绿**:`compare_permissions` 求两向差集。36 passed。
+- **重构**:无需重构。
+
+## Cycle 38 · U37 · 权限过宽时判失败并列出多出项
+
+- **测试**:`::test_permissions_wider_than_the_role_name_the_extra_ones`
+- **红**:首跑即绿。**故意变异**:`passed` 改为只看 `not missing`(容忍多出)→ `assert True is False`。恢复。
+- **绿**:实现未变。
+- **重构**:无需重构。
+
+## Cycle 39 · U38 · 权限过窄时判失败并列出缺失项
+
+- **测试**:`::test_permissions_narrower_than_the_role_name_the_absent_ones`
+- **红**:首跑即绿。**故意变异**:`passed` 改为只看 `not excess`(容忍缺失)→ `assert True is False`。恢复后 38 passed。
+- **绿**:实现未变。至此权限阈值三点(等于/过宽/过窄)全部钉住。
+- **重构**:无需重构。
+
+## Cycle 40 · U39 · 负向探测须无害 —— **仅部分完成**
+
+- **测试**:`::test_every_write_probe_declares_that_it_leaves_no_residue`
+- **红**:`-k no_residue` → `AssertionError: the self-check must define at least one write probe`
+- **绿**:`probe_actions()` 返回带 `persists` 标记的探测描述,全部为 `False`。39 passed。
+- **重构**:无需重构。
+- **限度(须记录)**:我先写的版本是拿模块自己的白名单校验模块自己的清单,**同义反复**,已废弃重写。
+  现在这条测试钉住的是**声明**——新增一个会落盘的探测必须显式写 `persists: True`,那一刻测试就红。
+  但"调用前后目录状态确实无变化"在单元层证不了,需要真实目录。
+  故 U39 记为 **DONE(部分)**,状态一致性那半并入集成行为(A 系列),不假装已覆盖。
