@@ -783,3 +783,39 @@ E   assert [] != []
 - **重构**:无需重构。
 - **教训**:单元测试里手搓协作者的输入形状,证明的是逻辑而不是接线。
   这条外层行为的全部价值就在于它用了**引擎真实传的事件**。
+
+## Cycle 73 · A19 · 治理审计 Agent 的写入在真实引擎上被拒
+
+- **测试**:`tests/policies/pipely/test_flow_acceptance.py::test_the_governance_agent_cannot_write_through_the_real_engine`
+- **红**:首跑即绿。**故意变异**:把 `event["data"]` 改读成 `event["payload"]`
+  —— 刻意复制 G2 那个缺陷的形态 → `AssertionError: assert 'allow' == 'deny'`。恢复后 81 passed。
+- **绿**:实现未变。TOOL_CALL 阶段运行时传的确实是 `content={"name":..., "arguments":...}`
+  (`omnigent/runner/policy.py:212`),所以 `data.name` 的读法本就正确 —— 但这一轮把它**钉住了**,
+  不再依赖我读代码时的判断。
+- **重构**:无需重构。
+
+## Cycle 74 · A46 · 服务验证 Agent 写入被拒但检索仍可用 —— **部分完成**
+
+- **测试**:`::test_the_consumer_agent_cannot_write_but_can_still_search`
+- **红**:首跑即绿。**故意变异**:判定改 `if True`(全拒)→ `AssertionError: assert 'deny' == 'allow'`。恢复后 82 passed。
+- **绿**:实现未变。两侧同测,因为"全拒"能满足拒绝侧却让 Agent 完全无用。
+- **限度**:"失败信息不泄漏凭证"这半需要真实调用产生的错误文本,此处证不了,已在清单注明。
+
+## Cycle 75 · A42 · 调度凭证不能治理,只能运行
+
+- **测试**:`::test_the_scheduler_credential_cannot_govern_only_run`
+- **红**:首跑即绿。**故意变异**:从 `PLATFORM_OPERATIONS` 移除 `create_domain`
+  → `AssertionError: assert 'allow' == 'deny'`。恢复后 83 passed。
+- **绿**:实现未变。同时断言 `trigger_dag_run` 仍放行 —— 否则"全拒"会让运维发布无法工作。
+- **重构**:无需重构。
+
+## Cycle 76 · A6 · 派发前一次性报全部缺失项
+
+- **测试**:`::test_no_task_is_dispatched_until_preconditions_are_verified`
+  与 `::test_a_partly_configured_deployment_is_told_every_gap_at_once`
+- **红**:首跑即绿。**两条故意变异**:
+  1. 前置策略改为放行首个调用 → `AssertionError: assert 'allow' == 'deny'`
+  2. `missing = missing[:1]`(只报第一项)→ `AssertionError: assert ['credential:code_hosting'] == [...]`
+  恢复后 85 passed。
+- **绿**:实现未变。
+- **重构**:`ruff` 修了一处 import 顺序,重跑仍 85 passed。

@@ -27,6 +27,7 @@ import pytest
 from omnigent.entities import ConversationItem, PagedList
 from omnigent.policies.function import resolve_function_policy
 from omnigent.policies.pipely.gates import GATE_LABEL
+from omnigent.policies.pipely.preflight import assess
 from omnigent.runtime.policies.engine import PolicyEngine
 from omnigent.spec.types import FunctionPolicySpec, FunctionRef, Phase
 from omnigent.tools.pipely.verify_governance import verify
@@ -142,3 +143,141 @@ async def test_a_fully_met_verification_opens_the_g2_gate() -> None:
     assert report["passed"] is True
     assert decision.action.value == "allow"
     assert engine.labels.get(GATE_LABEL) == G2
+
+
+def _read_only_engine(bot: str) -> PolicyEngine:
+    """Build an engine carrying the read-only policy *bot*'s agent declares."""
+    spec = FunctionPolicySpec(
+        name="read_only_catalog",
+        on=None,
+        function=FunctionRef(
+            path="omnigent.policies.pipely.identity.require_read_only",
+            arguments={"bot": bot},
+        ),
+    )
+    return PolicyEngine(
+        policies=[resolve_function_policy(spec)],
+        label_defs={},
+        ask_timeout=30,
+        conversation_id=CONV_ID,
+        initial_labels={},
+        conversation_store=_Store(),  # type: ignore[arg-type]
+    )
+
+
+def _tool_call_ctx(tool_name: str, arguments: dict[str, Any] | None = None) -> Any:
+    """Build the context the runner passes on TOOL_CALL."""
+    from omnigent.policies.types import EvaluationContext
+
+    return EvaluationContext(
+        phase=Phase.TOOL_CALL,
+        content={"name": tool_name, "arguments": arguments or {}},
+        tool_name=tool_name,
+    )
+
+
+@pytest.mark.asyncio
+async def test_the_governance_agent_cannot_write_through_the_real_engine() -> None:
+    """Read-only holds when the runtime dispatches it, not just when called directly.
+
+    The same class of gap that broke the G2 gate applies here: the policy could
+    be reading a field the runner never populates, and every unit test would
+    still be green.
+    """
+    engine = _read_only_engine("governance")
+
+    decision = await engine.evaluate(_tool_call_ctx("update_table"))
+
+    assert decision.action.value == "deny"
+
+
+@pytest.mark.asyncio
+async def test_the_consumer_agent_cannot_write_but_can_still_search() -> None:
+    """Verification must not be able to change what it verifies — and must
+    still be able to verify. Both halves, because a policy that denied
+    everything would satisfy the first while making the agent pointless.
+    """
+    engine = _read_only_engine("consumer")
+
+    refused = await engine.evaluate(_tool_call_ctx("create_table"))
+    allowed = await engine.evaluate(_tool_call_ctx("search_metadata"))
+
+    assert refused.action.value == "deny"
+    assert allowed.action.value == "allow"
+
+
+@pytest.mark.asyncio
+async def test_the_scheduler_credential_cannot_govern_only_run() -> None:
+    """Airflow ships inside OpenMetadata, so one credential looks like it covers
+    both. Running a job and governing one are different authorities, and the
+    refusal has to happen at the call, not in a rule someone remembers.
+    """
+    spec = FunctionPolicySpec(
+        name="no_platform_admin_via_scheduler",
+        on=None,
+        function=FunctionRef(
+            path="omnigent.policies.pipely.identity.deny_platform_operations",
+            arguments={"credential": "om_scheduler"},
+        ),
+    )
+    engine = PolicyEngine(
+        policies=[resolve_function_policy(spec)],
+        label_defs={},
+        ask_timeout=30,
+        conversation_id=CONV_ID,
+        initial_labels={},
+        conversation_store=_Store(),  # type: ignore[arg-type]
+    )
+
+    governing = await engine.evaluate(_tool_call_ctx("create_domain"))
+    running = await engine.evaluate(_tool_call_ctx("trigger_dag_run"))
+
+    assert governing.action.value == "deny"
+    assert running.action.value == "allow"
+
+
+@pytest.mark.asyncio
+async def test_no_task_is_dispatched_until_preconditions_are_verified() -> None:
+    """The runtime has no agent-startup hook, so the FIRST tool call is the only
+    place this can be made binding. An unverified session must be refused there
+    — half a pipeline built on a missing credential is worse than none.
+    """
+    spec = FunctionPolicySpec(
+        name="preflight",
+        on=None,
+        function=FunctionRef(
+            path="omnigent.policies.pipely.preflight.require_preflight",
+            arguments={},
+        ),
+    )
+    engine = PolicyEngine(
+        policies=[resolve_function_policy(spec)],
+        label_defs={},
+        ask_timeout=30,
+        conversation_id=CONV_ID,
+        initial_labels={},
+        conversation_store=_Store(),  # type: ignore[arg-type]
+    )
+
+    decision = await engine.evaluate(_tool_call_ctx("search_metadata"))
+
+    assert decision.action.value == "deny"
+
+
+def test_a_partly_configured_deployment_is_told_every_gap_at_once() -> None:
+    """One round trip, not one gap per round trip.
+
+    An operator who fixes the first missing credential, re-runs, and meets the
+    second has learned the same lesson twice at their own expense.
+    """
+    result = assess(
+        credentials={"model_access": True, "code_hosting": False, "om_reader": False},
+        shared_with=[],
+        approve_granted=[],
+    )
+
+    assert sorted(result["missing"]) == [
+        "credential:code_hosting",
+        "credential:om_reader",
+        "session:not_shared",
+    ]

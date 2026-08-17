@@ -27,7 +27,7 @@ profile 记录的 `acceptance` 是 `uv run pytest tests/e2e_ui`——Playwright 
 | A3 | Spec 要求平台不具备的能力时,评审结论指出不可行及原因,状态不进入"可实施" | US1-3, FR-009 | example | PENDING | |
 | A4 | 需求评审后被修改时,修订同一份 Spec 并保留变更记录,不另起矛盾文档 | US1-4 | example | PENDING | |
 | A5 | Spec 齐备且评审可实施时,停在 G1 并出示权限申请清单,确认前不生成变更请求包 | US1-5, FR-047 | example | PENDING | |
-| A6 | 前置配置缺凭证时,派发任何任务之前一次性列出全部缺失项并停止 | US1-6, FR-060 | example | PENDING | |
+| A6 | 前置配置缺凭证时,派发任何任务之前一次性列出全部缺失项并停止 | US1-6, FR-060 | example | DONE | `tests/policies/pipely/test_flow_acceptance.py::test_no_task_is_dispatched_until_preconditions_are_verified` / `::test_a_partly_configured_deployment_is_told_every_gap_at_once` |
 | A7 | 架构开发 Agent 读自身进程环境时,只能读到模型访问与代码托管两项凭证 | US1-7, FR-062 | example | PENDING | |
 | A8 | 会话未共享给平台管理员时,派发前报出"闸门待办无法送达"并指明缺失的共享对象 | US1-8, FR-084 | example | PENDING | |
 | A9 | 已共享但未委派审批权时,报出该项并与"未共享"区分开 | US1-9, FR-085 | example | PENDING | |
@@ -37,10 +37,10 @@ profile 记录的 `acceptance` 是 `uv run pytest tests/e2e_ui`——Playwright 
 | A13 | 给定已冻结 Spec,变更请求包三件产物齐备,手册每步含五要素 | US2-1, FR-012, FR-013 | example | PENDING | |
 | A14 | 目录中存在命名冲突时,手册基于实时状态标出冲突并给出处置选项 | US2-2, FR-014 | example | PENDING | |
 | A15 | 变更请求包提交后,待办出现在平台管理员本人的收件箱中(会话非其发起) | US2-3, FR-083 | example | PENDING | |
-| A16 | 管理员在收件箱点确认后,触发只读核验并输出逐条比对结果 | US2-4, FR-017 | example | PENDING | |
+| A16 | 管理员在收件箱点确认后,触发只读核验并输出逐条比对结果 | US2-4, FR-017 | example | DONE(**部分**) | `tests/policies/pipely/test_flow_acceptance.py::test_a_fully_met_verification_opens_the_g2_gate` —— 闸门推进侧已在真实引擎上钉住;"收件箱点确认"这一段需真实审批链路,随 A15 |
 | A17 | Spec 要求的带写权限 bot,其创建与授权作为平台级操作写入手册交人执行 | US2-5, FR-077 | example | PENDING | |
-| A18 | 核验发现任一断言不满足时,G2 不通过且给出需补做的具体步骤 | US2-6, FR-018 | example | PENDING | |
-| A19 | 治理审计 Agent 的任何写入尝试被拒 | US2-7, FR-011 | example | PENDING | |
+| A18 | 核验发现任一断言不满足时,G2 不通过且给出需补做的具体步骤 | US2-6, FR-018 | example | DONE | `tests/policies/pipely/test_flow_acceptance.py::test_an_unmet_governance_assertion_leaves_the_g2_gate_shut`(本轮暴露并修复了闭环对真实运行时不生效的缺陷) |
+| A19 | 治理审计 Agent 的任何写入尝试被拒 | US2-7, FR-011 | example | DONE | `tests/policies/pipely/test_flow_acceptance.py::test_the_governance_agent_cannot_write_through_the_real_engine` |
 | A20 | 同一变更请求包重复核验,结果一致且无副作用 | US2-8, FR-019 | example | PENDING | |
 | A21 | 平台管理员无仓库评审权限时,在生成变更请求包之前报错 | US2-9, FR-020 | example | PENDING | |
 | A22 | 给定可实施 Spec,产出的代码带有覆盖每条验收用例的自动化测试且全绿 | US3-1, FR-021 | example | PENDING | |
@@ -63,11 +63,11 @@ profile 记录的 `acceptance` 是 `uv run pytest tests/e2e_ui`——Playwright 
 | A39 | 运维发布 Agent 读取或修改源码的尝试被拒 | US4-7, FR-025 | example | PENDING | |
 | A40 | 连续失败/结构破坏性变更/权限错误时告警;仅平台对象或策略变更才升级管理员 | US4-8, FR-034 | example | PENDING | |
 | A41 | 部署不在制品引用范围内的作业定义被拒 | US4-9, FR-056 | example | PENDING | |
-| A42 | 用调度凭证执行平台级治理操作被拒 | US4-10, FR-057 | example | PENDING | |
+| A42 | 用调度凭证执行平台级治理操作被拒 | US4-10, FR-057 | example | DONE | `tests/policies/pipely/test_flow_acceptance.py::test_the_scheduler_credential_cannot_govern_only_run` |
 | A43 | 字段含义或归属类问题从治理目录取答案,不猜测也不从查询服务拼凑 | US5-1, FR-036 | example | PENDING | |
 | A44 | 歧义术语先查词表消歧再检索,并在结果中说明采用了哪个术语 | US5-2, FR-037 | example | PENDING | |
 | A45 | 每条检索结果含唯一标识、标题、命中条件与命中原因,不含内部路径类字段 | US5-3, FR-038 | example | PENDING | |
-| A46 | 服务验证 Agent 的写入/建索引/切指向尝试被拒,失败信息不泄漏凭证 | US5-4, FR-035 | example | PENDING | |
+| A46 | 服务验证 Agent 的写入/建索引/切指向尝试被拒,失败信息不泄漏凭证 | US5-4, FR-035 | example | DONE(**部分**) | `tests/policies/pipely/test_flow_acceptance.py::test_the_consumer_agent_cannot_write_but_can_still_search` —— 拒绝侧已钉住;"失败信息不泄漏凭证"需真实调用产生的错误文本,待外部系统接入 |
 | A47 | 返回结果超上限时使用分页,不一次性拉取全部 | US5-5, FR-039 | example | PENDING | |
 
 ## Inner loop: unit behaviors
