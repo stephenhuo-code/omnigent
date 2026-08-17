@@ -100,10 +100,10 @@ profile 记录的 `acceptance` 是 `uv run pytest tests/e2e_ui`——Playwright 
 | U15 | 模型在消息中自述"已核验"而无工具结果时不写标签 | FR-097, SC-036 | example | DONE | `tests/policies/pipely/test_gate_advance.py::test_a_model_claiming_it_verified_something_moves_no_gate` |
 | U16 | 工具返回缺少 `passed` 字段时不写标签且判为异常,而非默认通过 | FR-097 | example | DONE | `tests/policies/pipely/test_gate_advance.py::test_a_result_with_no_verdict_field_is_flagged_rather_than_ignored` |
 | U17 | 闸门标签只进不退:已达高闸门时不被低闸门的结果回写 | FR-090 | example | DONE | `tests/policies/pipely/test_gate_advance.py::test_a_lower_gates_result_does_not_pull_the_session_back` |
-| U18 | 首个工具调用写入 `pipely.flow.pipeline` 与 `pipely.flow.kind` | FR-099 | example | PENDING | |
-| U19 | 会话已绑定某管线后,出现不同管线标识时拒绝而非覆盖 | FR-099 | example | PENDING | |
-| U20 | `kind=operation` 的流程实例只校验 G4,不要求 G1–G3 | FR-099 | example | PENDING | |
-| U21 | ASK 被拒绝或超时时,闸门标签不被写入(无副作用) | FR-051 | example | PENDING | |
+| U18 | 首个工具调用写入 `pipely.flow.pipeline` 与 `pipely.flow.kind` | FR-099 | example | DONE | `tests/policies/pipely/test_flow_binding.py::test_the_first_tool_call_records_the_pipeline_and_kind` |
+| U19 | 会话已绑定某管线后,出现不同管线标识时拒绝而非覆盖 | FR-099 | example | DONE | `tests/policies/pipely/test_flow_binding.py::test_a_second_pipeline_in_a_bound_session_is_refused_not_absorbed` |
+| U20 | `kind=operation` 的流程实例只校验 G4,不要求 G1–G3 | FR-099 | example | DONE | `tests/policies/pipely/test_flow_binding.py::test_an_operation_flow_is_judged_on_its_own_gate_only` |
+| U21 | ASK 被拒绝或超时时,闸门标签不被写入(无副作用) | FR-051 | example | DONE | 既有运行时测试已覆盖:`tests/runtime/policies/test_approval.py::test_cancel_does_not_apply_labels`、`::test_timeout_does_not_apply_labels`(另见 `tests/runtime/policies/test_ask_cycle_e2e.py::test_ask_cycle_timeout_drops_labels`) |
 
 ### `omnigent/policies/pipely/handoff.py`
 

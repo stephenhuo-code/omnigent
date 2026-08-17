@@ -30,6 +30,87 @@ def _rank(gate: str | None) -> int:
         return -1
 
 
+FLOW_PIPELINE_LABEL = "pipely.flow.pipeline"
+FLOW_KIND_LABEL = "pipely.flow.kind"
+
+KIND_OPERATION = "operation"
+#: The gate an operation flow is judged on, whatever the caller asked for.
+RELEASE_GATE = "G4"
+
+
+def bind_flow() -> Callable[[_Json, _Json], _Json]:
+    """Factory: pin the session to one pipeline flow instance.
+
+    :returns: An evaluator ``fn(event, config)`` returning a V0 decision.
+    """
+
+    def _evaluate(event: _Json, config: _Json) -> _Json:  # noqa: ARG001
+        """Bind the session on first contact, and defend the binding after.
+
+        :param event: V0 ``tool_call`` event.
+        :param config: Runtime config dict (unused).
+        :returns: ALLOW / DENY decision dict.
+        """
+        arguments = event.get("data", {}).get("arguments") or {}
+        pipeline = arguments.get("pipeline")
+        kind = arguments.get("kind")
+        if pipeline is None:
+            return {"result": "ALLOW"}
+        bound = (event.get("context", {}).get("labels") or {}).get(FLOW_PIPELINE_LABEL)
+        if bound is not None and bound != pipeline:
+            # Overwriting would carry this session's gate progress onto a
+            # different pipeline's work. A second pipeline needs a second session.
+            return {
+                "result": "DENY",
+                "reason": (
+                    f"This session is bound to pipeline {bound}; it cannot also act on {pipeline}."
+                ),
+            }
+        return {
+            "result": "ALLOW",
+            "set_labels": {
+                FLOW_PIPELINE_LABEL: pipeline,
+                FLOW_KIND_LABEL: kind,
+            },
+        }
+
+    return _evaluate
+
+
+def require_flow_gate(*, minimum: str) -> Callable[[_Json, _Json], _Json]:
+    """Factory: gate a call according to the flow instance's own path.
+
+    Development work climbs G1 to G4; an operation enters at release and is
+    judged on that gate alone.
+
+    :param minimum: The gate a call requires on the development path.
+    :returns: An evaluator ``fn(event, config)`` returning a V0 decision.
+    """
+
+    def _evaluate(event: _Json, config: _Json) -> _Json:  # noqa: ARG001
+        """Judge one tool call against the gate its flow kind requires.
+
+        :param event: V0 ``tool_call`` event.
+        :param config: Runtime config dict (unused).
+        :returns: ALLOW / DENY decision dict.
+        """
+        labels = event.get("context", {}).get("labels") or {}
+        reached = labels.get(GATE_LABEL)
+        # An operation enters at release: it is judged on the release gate
+        # alone, never on development gates it was never meant to climb.
+        required = RELEASE_GATE if labels.get(FLOW_KIND_LABEL) == KIND_OPERATION else minimum
+        if _rank(reached) >= _rank(required):
+            return {"result": "ALLOW"}
+        return {
+            "result": "DENY",
+            "reason": (
+                f"This session is at gate {reached or 'none'}; the call requires gate {required}."
+            ),
+        }
+
+    return _evaluate
+
+
 def advance_on_result(*, tool: str, grants: str) -> Callable[[_Json, _Json], _Json]:
     """Factory: move the gate forward on *tool*'s real return value.
 

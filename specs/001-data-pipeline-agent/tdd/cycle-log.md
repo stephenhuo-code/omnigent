@@ -340,3 +340,37 @@ E   assert [] != []
   (G3 会被 G2 的通过结果拉回。)
 - **绿**:加入棘轮 `_rank(grants) > _rank(已达闸门)` 才写标签。19 passed。
 - **重构**:无需重构。
+
+## Cycle 20 · U18 · 首个工具调用绑定管线与流程种类
+
+- **测试**:`tests/policies/pipely/test_flow_binding.py::test_the_first_tool_call_records_the_pipeline_and_kind`
+- **红**:`uv run pytest tests/policies/pipely/test_flow_binding.py -q -p no:randomly` → `KeyError: 'set_labels'`
+- **绿**:从工具参数读 `pipeline`/`kind` 写入两个标签。20 passed。
+- **重构**:无需重构。
+
+## Cycle 21 · U19 · 已绑定会话拒绝第二条管线
+
+- **测试**:`::test_a_second_pipeline_in_a_bound_session_is_refused_not_absorbed`
+- **红**:`-k second_pipeline` → `AssertionError: assert 'ALLOW' == 'DENY'`(当时会静默覆盖绑定)
+- **绿**:已绑定且不一致时 DENY 且不写标签。21 passed。
+- **重构**:无需重构。
+
+## Cycle 22 · U20 · operation 流程只校验 G4
+
+- **测试**:`::test_an_operation_flow_is_judged_on_its_own_gate_only`
+- **红**:首跑为 ImportError(`require_flow_gate` 不存在),**不是有效红**。
+  加入一律 DENY 的桩后重跑 → `AssertionError: assert 'DENY' == 'ALLOW'`,记录此条。
+- **绿**:`kind=operation` 时所需闸门改为 `RELEASE_GATE`,不看 G1–G3。22 passed。
+- **重构**:无需重构。
+
+## Cycle 23 · U21 · ASK 被拒绝或超时时不写标签 —— 判定为既有测试已覆盖
+
+- **状态**:`DONE`,指向既有运行时测试,本轮**未新增测试与实现**。
+- **过程与更正**:我先写了一条"策略在 ASK 上不得返回 `set_labels`"的测试,并为取红写了带 `set_labels` 的桩。
+  写完即发现该测试会驱动出**错误实现**:运行时的语义是 ASK 的 `set_labels` **只在批准时**落地,
+  因此策略在 ASK 上携带 `set_labels` 恰恰是"批准后授予该闸门"的正确表达;去掉它会导致批准之后什么都不授予。
+- **核查**:`tests/runtime/policies/test_approval.py:461 test_cancel_does_not_apply_labels` 与
+  `:491 test_timeout_does_not_apply_labels` 的写法正是——策略返回 ASK 且带 `set_labels={"integrity":"0"}`,
+  取消/超时后断言 `engine.labels == {}`。这就是 U21 的行为,且断言真实有效。
+- **处理**:按 playbook Phase 1"已被既有通过测试覆盖"一条,撤回我写的测试与桩(未进入任何提交),
+  把 U21 记为 DONE 并在 test-list 中指明覆盖它的既有测试。
