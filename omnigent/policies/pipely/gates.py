@@ -11,11 +11,11 @@ from typing import Any, TypeAlias
 
 _Json: TypeAlias = dict[str, Any]  # type: ignore[explicit-any]
 
-GATE_LABEL = "pipely.gate.reached"
+GATE_LABEL = "pipely.gate"
 
 #: The gates in order. Rank comes from this sequence, never from comparing the
-#: label strings — lexicographic order would put "G10" below "G2".
-GATE_ORDER = ("G1", "G2", "G3", "G4")
+#: label strings — lexicographic order would put "g10_passed" below "g2_passed".
+GATE_ORDER = ("g1_passed", "g2_passed", "g3_passed", "g4_passed")
 
 
 def _rank(gate: str | None) -> int:
@@ -33,9 +33,12 @@ def _rank(gate: str | None) -> int:
 FLOW_PIPELINE_LABEL = "pipely.flow.pipeline"
 FLOW_KIND_LABEL = "pipely.flow.kind"
 
+#: A delivery flow climbs g1 to g4; an operation flow enters at release.
+KIND_DELIVERY = "delivery"
 KIND_OPERATION = "operation"
+
 #: The gate an operation flow is judged on, whatever the caller asked for.
-RELEASE_GATE = "G4"
+RELEASE_GATE = "g4_passed"
 
 
 def bind_flow() -> Callable[[_Json, _Json], _Json]:

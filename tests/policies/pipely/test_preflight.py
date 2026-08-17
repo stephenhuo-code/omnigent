@@ -14,6 +14,7 @@ from omnigent.policies.pipely.preflight import (
 )
 
 PREFLIGHT_LABEL = "pipely.preflight.status"
+PREFLIGHT_MISSING_LABEL = "pipely.preflight.missing"
 
 
 def _tool_call(labels: dict[str, str]) -> dict[str, object]:
@@ -91,6 +92,23 @@ def test_absent_bootstrap_bot_is_remediated_by_hand_not_by_creating_it() -> None
     )
 
     assert result["remediation"][f"credential:{BOOTSTRAP_BOT}"] == PROVISION_BY_HAND
+
+
+def test_a_failed_preflight_records_the_missing_items_on_the_session() -> None:
+    """The gate denies later calls from a label, so the *reason* must be on the
+    session too. Without it the operator sees a refusal with no way back to
+    which credential was absent.
+    """
+    result = assess(
+        credentials={"model_access": False, "code_hosting": False},
+        shared_with=["admin@example.com"],
+        approve_granted=["admin@example.com"],
+    )
+
+    assert result["labels"][PREFLIGHT_LABEL] == "failed"
+    assert result["labels"][PREFLIGHT_MISSING_LABEL] == (
+        "credential:code_hosting,credential:model_access"
+    )
 
 
 def test_not_shared_and_no_approve_grant_are_distinct_failures() -> None:

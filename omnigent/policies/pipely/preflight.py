@@ -16,7 +16,9 @@ _Json: TypeAlias = dict[str, Any]  # type: ignore[explicit-any]
 _ALLOW: _Json = {"result": "ALLOW"}
 
 PREFLIGHT_LABEL = "pipely.preflight.status"
+PREFLIGHT_MISSING_LABEL = "pipely.preflight.missing"
 PASSED = "passed"
+FAILED = "failed"
 BOOTSTRAP_BOT = "om_bootstrap_reader"
 PROVISION_BY_HAND = "provision_by_hand"
 
@@ -48,9 +50,16 @@ def assess(
     remediation = {
         f"credential:{BOOTSTRAP_BOT}": PROVISION_BY_HAND,
     }
+    # The gate denies later calls from a label, so the reason must be on the
+    # session too — otherwise the operator sees a refusal with no way back to
+    # which item was absent.
+    labels = {PREFLIGHT_LABEL: PASSED if not missing else FAILED}
+    if missing:
+        labels[PREFLIGHT_MISSING_LABEL] = ",".join(sorted(missing))
     return {
         "passed": not missing,
         "missing": missing,
+        "labels": labels,
         "remediation": {k: v for k, v in remediation.items() if k in missing},
     }
 

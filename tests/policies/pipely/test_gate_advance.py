@@ -8,9 +8,9 @@ gate is the failure mode this whole mechanism exists to prevent.
 
 from omnigent.policies.pipely.gates import GATE_LABEL, advance_on_result
 
-G1 = "G1"
-G2 = "G2"
-G3 = "G3"
+G1 = "g1_passed"
+G2 = "g2_passed"
+G3 = "g3_passed"
 
 
 def _tool_result(payload: object, *, reached: str = G1) -> dict[str, object]:

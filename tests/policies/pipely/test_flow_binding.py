@@ -14,9 +14,9 @@ from omnigent.policies.pipely.gates import (
 )
 
 PIPELINE = "orders_daily"
-KIND_DEVELOPMENT = "development"
+KIND_DELIVERY = "delivery"
 KIND_OPERATION = "operation"
-G4 = "G4"
+G4 = "g4_passed"
 
 
 def _tool_call(labels: dict[str, str], *, pipeline: str = PIPELINE) -> dict[str, object]:
@@ -25,7 +25,7 @@ def _tool_call(labels: dict[str, str], *, pipeline: str = PIPELINE) -> dict[str,
         "type": "tool_call",
         "data": {
             "name": "pipely_quality_gate",
-            "arguments": {"pipeline": pipeline, "kind": KIND_DEVELOPMENT},
+            "arguments": {"pipeline": pipeline, "kind": KIND_DELIVERY},
         },
         "context": {"labels": labels},
     }
@@ -37,13 +37,13 @@ def test_the_first_tool_call_records_the_pipeline_and_kind() -> None:
 
     assert decision["set_labels"] == {
         FLOW_PIPELINE_LABEL: PIPELINE,
-        FLOW_KIND_LABEL: KIND_DEVELOPMENT,
+        FLOW_KIND_LABEL: KIND_DELIVERY,
     }
 
 
 def test_a_second_pipeline_in_a_bound_session_is_refused_not_absorbed() -> None:
     """Overwriting would carry one pipeline's gate progress onto another's work."""
-    bound = {FLOW_PIPELINE_LABEL: PIPELINE, FLOW_KIND_LABEL: KIND_DEVELOPMENT}
+    bound = {FLOW_PIPELINE_LABEL: PIPELINE, FLOW_KIND_LABEL: KIND_DELIVERY}
 
     decision = bind_flow()(_tool_call(bound, pipeline="returns_hourly"), {})
 

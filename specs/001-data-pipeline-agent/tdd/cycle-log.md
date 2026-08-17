@@ -671,3 +671,34 @@ E   assert [] != []
 - **清理**:恢复变异时发现备份文件不存在(那条 `cp` 在被隔离守卫拦下的复合命令里没执行到),
   已手工撤回两处改动,并 `grep -n "MUTANT"` 全量扫描 pipely 的源码与测试,确认**无残留**。
 - **重构**:无需重构。
+
+## 更正 · 标签模型与 data-model.md 对齐(在 /speckit-implement 中发现)
+
+**这是我在 Cycle 10–23 引入的缺陷。** 写 Agent 定义 YAML 时需要在 `condition:` 里按标签名求值,
+比对 `data-model.md` 才发现实现用的标签名与取值与硬契约不符。tasks.md T018 原文即要求"标签模型按 data-model.md"。
+
+| 项 | data-model.md 规定 | 我的实现 | 处理 |
+| --- | --- | --- | --- |
+| 闸门标签名 | `pipely.gate` | `pipely.gate.reached` | 已改 |
+| 闸门取值 | `g1_passed`…`g4_passed` | `G1`…`G4` | 已改 |
+| 流程种类 | `delivery` \| `operation` | 测试用了 `development` | 已改 |
+| 缺失项标签 | `pipely.preflight.missing` | **从未写入** | 见下方 U70 |
+
+- **测试更正是独立一步且先于实现更改**:测试本身是错的(它编码了与硬契约矛盾的取值),
+  按 Hard Rule 4 的例外条款处理——先改测试并说明理由,取红后再改实现。
+- **红**:`uv run pytest tests/policies/pipely -q -p no:randomly` → `5 failed, 27 passed`
+- **绿**:`GATE_LABEL = "pipely.gate"`、`GATE_ORDER = ("g1_passed", …)`、`RELEASE_GATE = "g4_passed"`、
+  新增 `KIND_DELIVERY = "delivery"`。59 passed。
+- **未削弱任何断言**:改的是常量取值,每条测试的判定逻辑与边界都原样保留。
+
+## Cycle 61 · U70 · 前置校验失败时把缺失项写到会话上(循环中新增)
+
+- **来源**:上面那张表的第四行。`pipely.preflight.missing` 是 data-model.md 的硬契约,但从未实现。
+  这是**新行为**而非取值更正,按 Hard Rule 1 登记为 U70 并单独驱动。
+- **测试**:`tests/policies/pipely/test_preflight.py::test_a_failed_preflight_records_the_missing_items_on_the_session`
+- **红**:`-k records_the_missing` → `KeyError: 'labels'`
+- **绿**:`assess` 返回 `labels`,失败时含 `pipely.preflight.status=failed` 与逗号分隔的 `pipely.preflight.missing`。
+  60 passed。
+- **理由**:闸门是**读标签**来拒绝后续调用的,若不把原因也写到会话上,
+  运维只会看到一个没有出处的拒绝,无从回溯是哪一项凭证缺失。
+- **重构**:无需重构。

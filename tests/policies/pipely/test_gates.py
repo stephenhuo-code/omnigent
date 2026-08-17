@@ -7,9 +7,9 @@ and "past the gate" pass the same single test.
 
 from omnigent.policies.pipely.gates import GATE_LABEL, require_gate
 
-G1 = "G1"
-G2 = "G2"
-G3 = "G3"
+G1 = "g1_passed"
+G2 = "g2_passed"
+G3 = "g3_passed"
 
 
 def _tool_call(gate: str | None) -> dict[str, object]:
