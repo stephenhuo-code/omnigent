@@ -90,11 +90,11 @@ profile 记录的 `acceptance` 是 `uv run pytest tests/e2e_ui`——Playwright 
 
 | id  | behavior | traces | kind | state | test |
 | --- | --- | --- | --- | --- | --- |
-| U8 | 标签恰为所需闸门值时放行(边界:等于) | FR-090 | example | PENDING | |
-| U9 | 标签为所需闸门的前一级时拒绝(边界:小于) | FR-090 | example | PENDING | |
-| U10 | 标签已超过所需闸门时放行(边界:大于) | FR-090 | example | PENDING | |
-| U11 | 标签缺失时拒绝,而非按"未设限"放行 | FR-090 | example | PENDING | |
-| U12 | 拒绝时的原因文本指明当前闸门与所需闸门 | FR-090 | example | PENDING | |
+| U8 | 标签恰为所需闸门值时放行(边界:等于) | FR-090 | example | DONE | `tests/policies/pipely/test_gates.py::test_a_session_exactly_at_the_required_gate_is_allowed` |
+| U9 | 标签为所需闸门的前一级时拒绝(边界:小于) | FR-090 | example | DONE | `tests/policies/pipely/test_gates.py::test_a_session_one_gate_below_the_requirement_is_denied` |
+| U10 | 标签已超过所需闸门时放行(边界:大于) | FR-090 | example | DONE | `tests/policies/pipely/test_gates.py::test_a_session_past_the_required_gate_is_still_allowed` |
+| U11 | 标签缺失时拒绝,而非按"未设限"放行 | FR-090 | example | DONE | `tests/policies/pipely/test_gates.py::test_a_session_carrying_no_gate_at_all_is_denied` |
+| U12 | 拒绝时的原因文本指明当前闸门与所需闸门 | FR-090 | example | DONE | `tests/policies/pipely/test_gates.py::test_a_denial_names_both_where_the_session_is_and_where_it_must_be` |
 | U13 | `tool_result` 中工具返回 `passed=true` 时写入下一闸门标签 | FR-097 | example | PENDING | |
 | U14 | `tool_result` 中工具返回 `passed=false` 时不写标签 | FR-097 | example | PENDING | |
 | U15 | 模型在消息中自述"已核验"而无工具结果时不写标签 | FR-097, SC-036 | example | PENDING | |

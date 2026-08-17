@@ -262,3 +262,41 @@ E   assert [] != []
 - **更正**:本轮**第一次写的测试是错的**。我按"凭证运行中失效被具名"来写,那是 U2 的重复(首跑即绿即为信号)。
   回读 test-list 第 87 行,U7 的真实行为是 FR-076 的引导 bot 不得自建。删除错误测试,按真实行为重写。
   错误测试从未进入提交。
+
+## Cycle 10 · U8 · 闸门边界:等于则放行
+
+- **测试**:`tests/policies/pipely/test_gates.py::test_a_session_exactly_at_the_required_gate_is_allowed`
+- **红**:`uv run pytest tests/policies/pipely/test_gates.py -q -p no:randomly` → `AssertionError: assert 'DENY' == 'ALLOW'`
+  (新建 `gates.py` 时先写成一律 DENY 的桩,以便红是断言失败而非 ImportError。)
+- **绿**:相等比较。10 passed。
+- **重构**:无需重构。
+
+## Cycle 11 · U9 · 闸门边界:前一级则拒绝
+
+- **测试**:`::test_a_session_one_gate_below_the_requirement_is_denied`
+- **红**:首跑即绿(当时实现只做相等比较,天然拒绝)。**故意变异**:把判定改成 `if True`。
+  `uv run pytest ... -k one_gate_below` → `AssertionError: assert 'ALLOW' == 'DENY'`。恢复后 2 passed。
+- **绿**:实现未变;本轮价值在于把"下侧"钉死,使后续引入序关系时不能悄悄放宽。
+- **重构**:无需重构。
+
+## Cycle 12 · U10 · 闸门边界:已超过则放行
+
+- **测试**:`::test_a_session_past_the_required_gate_is_still_allowed`
+- **红**:`-k past_the_required` → `AssertionError: assert 'DENY' == 'ALLOW'`
+- **绿**:引入 `GATE_ORDER` 与 `_rank()`,改为按序比较。**刻意不用字符串比较**——字典序会把 `"G10"` 排到 `"G2"` 之下。12 passed。
+- **重构**:无需重构(`_rank` 是本轮为转绿引入的最小结构,非事后重构)。
+
+## Cycle 13 · U11 · 闸门标签缺失即拒绝
+
+- **测试**:`::test_a_session_carrying_no_gate_at_all_is_denied`
+- **红**:首跑即绿(`_rank(None) == -1` 恰好承载)。**故意变异**:`return -1` → `return 99`。
+  → `AssertionError: assert 'ALLOW' == 'DENY'`。恢复后 13 passed。
+- **绿**:实现未变。本轮把"未知/缺失闸门排在最低"从巧合变成被钉住的约定。
+- **重构**:无需重构。
+
+## Cycle 14 · U12 · 拒绝原因须同时指明当前与所需闸门
+
+- **测试**:`::test_a_denial_names_both_where_the_session_is_and_where_it_must_be`
+- **红**:`-k names_both` → `AssertionError: assert 'G1' in 'Gate G3 has not been reached.'`
+- **绿**:原因文本改为同时含当前闸门(缺失时为 `none`)与所需闸门。14 passed。
+- **重构**:无需重构;`ruff format` 把 reason 合成一行,已接受并重跑门禁。
