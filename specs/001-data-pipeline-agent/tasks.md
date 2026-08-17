@@ -28,11 +28,11 @@
 
 ## Phase 1: Setup (Shared Infrastructure)
 
-- [ ] T001 创建 Agent 定义目录骨架 `examples/pipely/{agents,tools/mcp,skills}/`
-- [ ] T002 [P] 创建策略子包 `omnigent/policies/pipely/__init__.py`
-- [ ] T003 [P] 创建工具子包 `omnigent/tools/pipely/__init__.py`
-- [ ] T004 [P] 创建测试目录 `tests/policies/pipely/__init__.py`、`tests/tools/pipely/__init__.py`、`tests/integration/pipely/__init__.py`
-- [ ] T005 [P] [U67][U68] 编写 `examples/pipely/.env.example`,逐项注释每个凭证的用途、归属 Agent、是否必需(FR-066)
+- [X] T001 创建 Agent 定义目录骨架 `examples/pipely/{agents,tools/mcp,skills}/`
+- [X] T002 [P] 创建策略子包 `omnigent/policies/pipely/__init__.py`
+- [X] T003 [P] 创建工具子包 `omnigent/tools/pipely/__init__.py`
+- [X] T004 [P] 创建测试目录 `tests/policies/pipely/__init__.py`、`tests/tools/pipely/__init__.py`、`tests/integration/pipely/__init__.py`
+- [X] T005 [P] [U67][U68] 编写 `examples/pipely/.env.example`,逐项注释每个凭证的用途、归属 Agent、是否必需(FR-066)
 
 ---
 
@@ -42,13 +42,13 @@
 
 ### Agent 声明骨架
 
-- [ ] T006 [U63][U64] 编写编排者 `examples/pipely/config.yaml`:`executor`(deepseek + 编排型 harness)、`tools.agents` 声明四个子 Agent、`agent_session_sharing: non-public`、`guardrails.ask_timeout` 设为天级(FR-052)
-- [ ] T007 [P] [U62] 编写 `examples/pipely/agents/architect/config.yaml`:codex harness、**声明 `os_env`**(唯一有 shell 者)、挂 `blast_radius` 与 `worktree_guard`
-- [ ] T008 [P] [U61] 编写 `examples/pipely/agents/governance/config.yaml`:deepseek、**不声明 `os_env`**、挂 `read_only_os` 兜底
-- [ ] T009 [P] [U61] 编写 `examples/pipely/agents/operations/config.yaml`:deepseek、**不声明 `os_env`**
-- [ ] T010 [P] [U61] 编写 `examples/pipely/agents/consumer/config.yaml`:deepseek、**不声明 `os_env`**
-- [ ] T011 [P] [U65][U66] 编写 `examples/pipely/tools/mcp/openmetadata.yaml`:HTTP 接入、`headers` 用变量引用注入各 Agent 的 bot 令牌、`tools:` 白名单按职责裁剪
-- [ ] T012 [P] [U65] 编写 `examples/pipely/tools/mcp/airflow.yaml`:仅运维发布 Agent 可用,凭证与目录写入分离(FR-057)
+- [X] T006 [U63][U64] 编写编排者 `examples/pipely/config.yaml`:`executor`(deepseek + 编排型 harness)、`tools.agents` 声明四个子 Agent、`agent_session_sharing: non-public`、`guardrails.ask_timeout` 设为天级(FR-052)
+- [X] T007 [P] [U62] 编写 `examples/pipely/agents/architect/config.yaml`:codex harness、**声明 `os_env`**(唯一有 shell 者)、挂 `blast_radius` 与 `worktree_guard`
+- [X] T008 [P] [U61] 编写 `examples/pipely/agents/governance/config.yaml`:deepseek、**不声明 `os_env`**、挂 `read_only_os` 兜底
+- [X] T009 [P] [U61] 编写 `examples/pipely/agents/operations/config.yaml`:deepseek、**不声明 `os_env`**
+- [X] T010 [P] [U61] 编写 `examples/pipely/agents/consumer/config.yaml`:deepseek、**不声明 `os_env`**
+- [X] T011 [P] [U65][U66] 编写 `examples/pipely/tools/mcp/openmetadata.yaml`:HTTP 接入、`headers` 用变量引用注入各 Agent 的 bot 令牌、`tools:` 白名单按职责裁剪
+- [X] T012 [P] [U65] 编写 `examples/pipely/tools/mcp/airflow.yaml`:仅运维发布 Agent 可用,凭证与目录写入分离(FR-057)
 
 ### 硬强制载体(两处必须写 Python)
 

@@ -1,0 +1,88 @@
+spec_version: 1
+name: consumer
+description: >-
+  Service verification sub-agent. Uses the finished pipeline service the way a
+  real consumer would and checks that it answers correctly. Read-only: no
+  writes, no index builds, no pointer changes.
+
+executor:
+  type: omnigent
+  config:
+    harness: openai-agents
+  auth:
+    type: provider
+    name: deepseek
+
+prompt: |
+  You are the consumer sub-agent of pipely. You are the last check before
+  anyone trusts this pipeline: you use the service as a real consumer would and
+  report whether it actually answers.
+
+  ## Where answers come from
+
+  Questions about what a field MEANS or who OWNS it are answered from the
+  governance catalog. Do not guess, and do not reconstruct an answer by
+  inspecting query results — a field's meaning is not recoverable from its
+  values, and a plausible reconstruction is worse than "I could not find it"
+  because it gets believed.
+
+  ## Ambiguous terms
+
+  When a term could mean more than one thing, resolve it against the glossary
+  FIRST, then search. Say in the result which reading you used. Silently
+  picking one reading produces an answer that looks confident and is
+  unfalsifiable by the reader.
+
+  ## What a result must carry
+
+  Every result needs its identifier, its title, what matched, and why it
+  matched. Never internal paths or storage locations — those are not meaningful
+  to a consumer and they leak the layout of the system.
+
+  ## Paging
+
+  When there are more results than the limit, page. Do not pull everything: a
+  single unbounded fetch is the query that takes the service down at exactly
+  the moment it is being verified.
+
+  ## Your boundary
+
+  You cannot write, build an index, or move a pointer, and attempts are
+  refused. If a failure message would carry a credential, it must not — report
+  that the call failed and what it was trying to do, never the token.
+
+# No `os_env:` — no shell, no file tools. A verification agent that could
+# modify what it verifies is not a verification agent.
+
+tools:
+  # This is also the "data and retrieval service" the spec refers to:
+  # OpenMetadata provides the catalog AND the search over it through one MCP
+  # server. There is no separate retrieval system to configure.
+  openmetadata:
+    type: mcp
+    url: ${OMNIGENT_OM_BASE_URL}/mcp
+    headers:
+      # A read-only bot, probed with a write expecting refusal — same
+      # discipline as the governance bot.
+      Authorization: Bearer ${OMNIGENT_OM_CONSUMER}
+    # Read and search only. No write verb, no index-management verb, no pointer
+    # verb: they are simply not registered, so FR-035 holds by construction
+    # rather than by the model choosing to comply.
+    tools:
+      - search_metadata
+      - get_table
+      - get_database_schema
+      - get_glossary_term
+      - get_lineage
+      - get_domain
+
+guardrails:
+  ask_timeout: 86400
+  policies:
+    read_only_catalog:
+      type: function
+      on: [tool_call]
+      function:
+        path: omnigent.policies.pipely.identity.require_read_only
+        arguments:
+          bot: consumer
