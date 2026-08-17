@@ -1,0 +1,429 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>omnigent Agent 定义与控制机制</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #f4f7fb;
+      --surface: #ffffff;
+      --surface-2: #f8fafc;
+      --text: #172033;
+      --muted: #64748b;
+      --line: #d9e2ef;
+      --blue: #1769e0;
+      --blue-soft: #eaf2ff;
+      --green: #168566;
+      --green-soft: #e8f7f1;
+      --amber: #b06f00;
+      --amber-soft: #fdf3e2;
+      --red: #c0392b;
+      --red-soft: #fdecea;
+      --purple: #7656c9;
+      --purple-soft: #f1ecfd;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0e131b;
+        --surface: #161d28;
+        --surface-2: #1b2431;
+        --text: #e7edf5;
+        --muted: #94a3b8;
+        --line: #2a3546;
+        --blue-soft: #16253c;
+        --green-soft: #122b23;
+        --amber-soft: #2e2412;
+        --red-soft: #2e1a18;
+        --purple-soft: #221c38;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: var(--bg); color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      line-height: 1.65;
+    }
+    main { max-width: 1180px; margin: 0 auto; padding: 32px 20px 60px; }
+    header { margin-bottom: 26px; }
+    h1 { font-size: 30px; margin: 0 0 8px; letter-spacing: -.3px; }
+    h2 { font-size: 21px; margin: 0 0 14px; letter-spacing: -.2px; }
+    h3 { font-size: 16px; margin: 0 0 8px; }
+    .subtitle { color: var(--muted); margin: 0; font-size: 14px; }
+    .panel {
+      background: var(--surface); border: 1px solid var(--line);
+      border-radius: 16px; padding: 22px; margin-bottom: 18px;
+    }
+    .badge {
+      display: inline-block; font-size: 12px; font-weight: 600;
+      padding: 3px 9px; border-radius: 999px; margin-bottom: 8px;
+      background: var(--blue-soft); color: var(--blue);
+    }
+    .badge.strong { background: var(--green-soft); color: var(--green); }
+    .badge.mid { background: var(--amber-soft); color: var(--amber); }
+    .badge.weak { background: var(--red-soft); color: var(--red); }
+    .badge.neutral { background: var(--purple-soft); color: var(--purple); }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 10px; }
+    th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    th { color: var(--muted); font-weight: 600; font-size: 13px; }
+    tbody tr:last-child td { border-bottom: none; }
+    pre {
+      margin: 10px 0 0; padding: 14px; border-radius: 12px; overflow-x: auto;
+      background: var(--surface-2); border: 1px solid var(--line);
+      font-size: 12.5px; line-height: 1.6;
+    }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    p code, li code, td code { background: var(--surface-2); padding: 1px 5px; border-radius: 5px; font-size: 12.5px; }
+    .note {
+      border-left: 3px solid var(--blue); background: var(--blue-soft);
+      padding: 12px 14px; border-radius: 0 10px 10px 0; margin-top: 12px; font-size: 14px;
+    }
+    .note.warn { border-color: var(--amber); background: var(--amber-soft); }
+    .note.danger { border-color: var(--red); background: var(--red-soft); }
+    .note.ok { border-color: var(--green); background: var(--green-soft); }
+    .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 14px; }
+    .grid3 { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; }
+    .card { background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
+    .card p { margin: 6px 0 0; font-size: 13.5px; color: var(--muted); }
+    .mermaid { background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-top: 12px; overflow-x: auto; }
+    ul { margin: 8px 0 0; padding-left: 20px; font-size: 14px; }
+    li + li { margin-top: 5px; }
+    footer { margin-top: 24px; color: var(--muted); font-size: 12px; text-align: right; }
+    @media (max-width: 860px) {
+      .grid2, .grid3 { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>omnigent Agent 定义与控制机制</h1>
+    <p class="subtitle">一个 Agent 能被约束到什么程度，取决于你把行为放进了哪一层。本文说明 omnigent 的 Agent 定义结构、六种控制机制的强制力差异，以及“我要保证某个行为，该用哪一种”的选择规则。</p>
+    <p class="subtitle" style="margin-top:6px">规范以 <code>docs/AGENT_YAML_SPEC.md</code> 与运行时源码为准；本文是面向设计决策的导读。</p>
+  </header>
+
+  <!-- ─────────────────────────── 结构 ─────────────────────────── -->
+  <section class="panel">
+    <h2>一、Agent 定义包的结构</h2>
+    <p class="subtitle">一个 Agent 是一个目录，不是一段代码。</p>
+    <pre><code>my-agent/
+├── config.yaml                 编排者本体
+│                               spec_version / name / description
+│                               executor      模型与 harness
+│                               prompt        系统提示词
+│                               os_env        本地文件与 shell 能力（不写=没有）
+│                               terminals     长驻终端
+│                               tools         子 Agent、函数工具、MCP
+│                               guardrails    ask_timeout + policies
+│                               spawn / async / cancellable / timers
+│                               agent_session_sharing   会话共享授权
+│                               params        供 skills 与 tools 读取的键值
+├── agents/&lt;name&gt;/config.yaml    子 Agent，字段与上同（各自的 harness / 权限 / 策略）
+├── tools/mcp/&lt;name&gt;.yaml        MCP 接入（自动发现，无需在 config.yaml 引用）
+└── skills/&lt;name&gt;/
+    ├── SKILL.md                 正文 + YAML frontmatter（name / description / user-invocable）
+    ├── references/              资源：可被列出与读取
+    ├── scripts/                 同上——注意：没有“执行 skill 脚本”的工具
+    └── assets/</code></pre>
+    <div class="note">
+      <strong>最重要的一条结构性事实：</strong><code>os_env</code> 不声明，这个 Agent 就<strong>没有</strong>文件读写与 shell 工具。能力边界的第一道防线不是策略，是“压根不给”。
+    </div>
+  </section>
+
+  <!-- ─────────────────────────── 强制力梯度 ─────────────────────────── -->
+  <section class="panel">
+    <h2>二、六种控制机制,强制力依次递减</h2>
+    <p class="subtitle">选错载体等于没做。下表按强制力排序，不按使用频率。</p>
+    <table>
+      <thead><tr><th style="width:210px">机制</th><th style="width:96px">强制力</th><th>运行时行为</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><strong>工具集裁剪</strong><br><span class="subtitle">不给的就是没有</span></td>
+          <td><span class="badge strong">强</span></td>
+          <td>未授予的工具，模型根本调不到。<code>os_env</code> 不写就没有 shell；MCP 的 <code>tools:</code> 白名单可只暴露部分工具。<strong>最强也最省事。</strong></td>
+        </tr>
+        <tr>
+          <td><strong>策略</strong><br><span class="subtitle">guardrails.policies</span></td>
+          <td><span class="badge strong">强</span></td>
+          <td>在六个触发点上<strong>无条件求值</strong>，返回 allow / deny / ask。模型没有选择权，也绕不过。</td>
+        </tr>
+        <tr>
+          <td><strong>确定性工具 + 结果策略</strong><br><span class="subtitle">组合用法</span></td>
+          <td><span class="badge strong">强</span></td>
+          <td>工具执行写死的代码；策略在 <code>tool_result</code> 读<strong>真实返回值</strong>并落状态，后续操作凭状态放行。<strong>可防模型谎报。</strong></td>
+        </tr>
+        <tr>
+          <td><strong>Python 函数工具</strong><br><span class="subtitle">type: function（单用）</span></td>
+          <td><span class="badge mid">中</span></td>
+          <td>一旦被调用即执行确定性代码，消除“模型自己编结果”的风险；<strong>但调不调用由模型决定</strong>。</td>
+        </tr>
+        <tr>
+          <td><strong>skill 捆绑脚本</strong><br><span class="subtitle">skills/&lt;n&gt;/scripts/</span></td>
+          <td><span class="badge weak">弱</span></td>
+          <td>可被列出（<code>references/</code>、<code>scripts/</code>、<code>assets/</code>）与读取（<code>read_skill_file</code>），<strong>但没有“执行 skill 脚本”的工具</strong>——要跑得由 Agent 自己经 shell 调，因此<strong>无 shell 的 Agent 根本用不了</strong>。</td>
+        </tr>
+        <tr>
+          <td><strong>skill 正文 / prompt</strong></td>
+          <td><span class="badge weak">弱</span></td>
+          <td>skill 需模型主动调用加载工具才读到，<strong>没有强制加载机制</strong>；读到也未必遵守。承载知识，不承载约束。</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="note danger">
+      <strong>“确定性执行”≠“必然被执行”。</strong>函数工具保证“做的时候按代码做”，保证不了“一定会做”。只有策略是无条件求值的。
+    </div>
+  </section>
+
+  <!-- ─────────────────────────── 决策图 ─────────────────────────── -->
+  <section class="panel">
+    <h2>三、我要保证某个行为,该用哪一种?</h2>
+    <div class="mermaid">
+<pre class="mermaid">
+flowchart TB
+    Q["我要保证的是什么"] --> A{"是不是<br/>压根不该有这个能力"}
+    A -->|是| T1["不授予该工具<br/>os_env 不声明 / MCP tools 白名单"]
+    A -->|否| B{"是不是<br/>不能做某件事"}
+    B -->|是| T2["策略 deny<br/>on tool_call"]
+    B -->|否| C{"是不是<br/>做之前要人批准"}
+    C -->|是| T3["策略 ask<br/>经收件箱送达"]
+    C -->|否| D{"是不是<br/>必须做且必须做成"}
+    D -->|是| T4["确定性工具<br/>+ tool_result 策略写状态<br/>+ tool_call 策略门控"]
+    D -->|否| E{"是不是<br/>做的时候要按确定逻辑"}
+    E -->|是| T5["Python 函数工具"]
+    E -->|否| T6["skill 或 prompt<br/>仅知识，弱强制"]
+</pre>
+    </div>
+    <div class="note warn">
+      走到最后一格就要警觉：<strong>凡是“必须发生”或“不得发生”的约束，落到 skill/prompt 就等于没落。</strong>此时应回头看能否改写成前几格之一。
+    </div>
+  </section>
+
+  <!-- ─────────────────────────── 策略详解 ─────────────────────────── -->
+  <section class="panel">
+    <h2>四、策略:六个触发点与三种决策</h2>
+    <div class="mermaid">
+<pre class="mermaid">
+sequenceDiagram
+    autonumber
+    actor U as 用户
+    participant A as Agent 循环
+    participant P as 策略引擎
+    participant T as 工具
+
+    U->>A: 新消息
+    A->>P: request 阶段求值
+    loop 每次 LLM 往返
+        A->>P: llm_request 阶段求值
+        A->>A: 调用模型
+        A->>P: llm_response 阶段求值
+    end
+    A->>P: tool_call 阶段求值
+    Note over P: allow 放行 / deny 拒绝 / ask 请人批准
+    P->>T: 放行后派发
+    T-->>P: 返回结果
+    A->>P: tool_result 阶段求值
+    Note over P: 可读真实返回值并写会话标签
+    A->>P: response 阶段求值
+    A-->>U: 最终回复
+</pre>
+    </div>
+    <div class="grid3" style="margin-top:14px">
+      <article class="card"><span class="badge neutral">会话级</span><h3>request / response</h3><p>每轮各触发一次。用于整体准入、内容过滤、成本预算。</p></article>
+      <article class="card"><span class="badge neutral">工具级</span><h3>tool_call / tool_result</h3><p>每次工具调用触发。<strong>前者在派发之前</strong>，可拒绝；<strong>后者在结果回给模型之前</strong>，能读真实返回值。</p></article>
+      <article class="card"><span class="badge neutral">模型级</span><h3>llm_request / llm_response</h3><p>每次模型往返触发（一轮可能多次）。前者能看到完整提示词，后者是模型原始输出。</p></article>
+    </div>
+
+    <h3 style="margin-top:18px">写法</h3>
+    <pre><code>guardrails:
+  ask_timeout: 86400            # 审批等待上限（秒），可被单条策略覆盖
+  policies:
+    blast_radius:               # 短形式：可调用对象本身就是求值器
+      type: function
+      function: omnigent.policies.builtins.orchestration.blast_radius
+
+    spawn_bounds:               # 工厂形式：arguments 是工厂 kwargs
+      type: function
+      function:
+        path: omnigent.policies.builtins.orchestration.spawn_bounds
+        arguments:
+          max_dispatches_per_turn: 6
+      on: [tool_call]           # 触发阶段；可窄化到单个工具：tool_call:sys_os_shell
+      condition: {role: [admin, ops]}   # 标签门：仅当会话标签匹配时才生效
+      ask_timeout: 3600         # 单条策略覆盖全局超时</code></pre>
+    <div class="note ok">
+      <strong>策略有状态。</strong>它可读会话标签（事件里的只读快照），也可通过返回值写标签与状态；<strong>ASK 场景下仅在“批准”时才落状态</strong>，被拒或超时不留副作用。加上 <code>condition</code> 标签门，<strong>状态机可以半声明式地实现</strong>——这是把“流程顺序”变成硬约束的关键。
+    </div>
+  </section>
+
+  <!-- ─────────────────────────── 内置策略 ─────────────────────────── -->
+  <section class="panel">
+    <h2>五、开箱可用的内置策略</h2>
+    <p class="subtitle">先找现成的，找不到再自己写。以下按用途分组。</p>
+    <table>
+      <thead><tr><th style="width:150px">用途</th><th>策略</th></tr></thead>
+      <tbody>
+        <tr><td><strong>编排与破坏半径</strong></td><td><code>blast_radius</code> 按可逆性分级 shell 命令（强推/硬重置/根删除恒 DENY；推送/合并/部署 ASK 或 DENY；本地 git 放行）· <code>spawn_bounds</code> 每轮派发上限 · <code>headless_subagent_purpose_guard</code> 子 Agent 用途白名单 · <code>worktree_guard</code> 写入限制在工作区内 · <code>read_only_os</code> 拒绝一切改文件的调用</td></tr>
+        <tr><td><strong>安全</strong></td><td><code>max_tool_calls_per_session</code> · <code>detect_loop</code> · <code>ask_on_os_tools</code> · <code>ask_on_add_policy</code> · <code>block_skills</code> · <code>enforce_sandbox</code> · <code>deny_pii_in_llm_request</code></td></tr>
+        <tr><td><strong>成本与路由</strong></td><td><code>cost_budget</code> · <code>user_daily_cost_budget</code> · <code>subagent_cost_budget</code> · <code>deny_trivial_to_expensive_model</code> · <code>intent_based_authorization</code> · <code>risk_score_policy</code></td></tr>
+        <tr><td><strong>外部系统</strong></td><td><code>github_policy</code> · <code>gdrive_policy</code> / <code>gmail_policy</code> / <code>gcalendar_policy</code></td></tr>
+        <tr><td><strong>通用</strong></td><td><code>cel_policy</code> 用 CEL 表达式声明式判定 · <code>prompt_policy</code> · <code>working_dir</code> 相关 · <code>context</code> 相关（任务切换、反复横跳检测）</td></tr>
+      </tbody>
+    </table>
+    <div class="note">
+      <code>cel_policy</code> 值得特别注意：它把一条 CEL 表达式编译成策略，<strong>无需写 Python 就能表达大量条件判断</strong>，例如 <code>event.type == "tool_call" &amp;&amp; event.data.name == "sys_os_shell"</code>。简单规则优先用它。
+    </div>
+  </section>
+
+  <!-- ─────────────────────────── 工具三层 ─────────────────────────── -->
+  <section class="panel">
+    <h2>六、工具:三个层面的机制</h2>
+    <p class="subtitle">“做成工具”不是单一手段，它同时提供三层约束，强度各异。</p>
+    <div class="grid3">
+      <article class="card"><span class="badge strong">强</span><h3>工具集即能力边界</h3><p>未授予的工具，模型根本调不到。<code>os_env</code> 不声明就没有 shell；MCP 服务器可用 <code>tools:</code> 只暴露部分工具。</p></article>
+      <article class="card"><span class="badge strong">强</span><h3>工具内部逻辑</h3><p><code>callable:</code> 指向的代码写死了“怎么做”，模型无从改变，也无法伪造返回值。</p></article>
+      <article class="card"><span class="badge weak">弱</span><h3>是否调用</h3><p>由模型决定。<strong>这一层的缺口必须用策略补</strong>——见下方闭环。</p></article>
+    </div>
+
+    <h3 style="margin-top:18px">三种工具的声明</h3>
+    <pre><code># ① Python 函数工具——确定性逻辑
+tools:
+  verify_state:
+    type: function
+    description: 只读核验实际状态是否满足断言。
+    callable: my_pkg.tools.verify_state
+    parameters:
+      type: object
+      properties: {assertions_path: {type: string}}
+      required: [assertions_path]
+
+# ② 子 Agent——独立 harness / 权限 / 策略
+tools:
+  reviewer:
+    type: agent
+    description: 独立评审改动。
+    executor: {harness: claude-sdk, model: databricks-claude-sonnet-4-6}
+    os_env: inherit
+    pass_history: true
+
+# ③ MCP——外部系统（放在 tools/mcp/&lt;name&gt;.yaml，自动发现）
+name: catalog
+transport: http
+url: https://catalog.example.com/mcp
+headers:
+  Authorization: Bearer ${CATALOG_TOKEN}    # 解析期从进程环境展开
+tools: [search, get_entity]                 # 白名单：只暴露这两个</code></pre>
+    <div class="note danger">
+      <strong>凭证隔离有个前提。</strong>MCP 配置里的 <code>${VAR}</code> 是<strong>从进程环境展开</strong>的。因此对<strong>有 shell 的 Agent，“工具层注入”并不构成隔离</strong>——它可以直接读那个环境变量。隔离真正成立的前提是<strong>该 Agent 没有读取环境的手段</strong>。给有 shell 的 Agent 配凭证时，一律按“它能看到明文”评估风险。
+    </div>
+  </section>
+
+  <!-- ─────────────────────────── 闭环案例 ─────────────────────────── -->
+  <section class="panel">
+    <h2>七、案例:把“必须做且做成”变成硬约束</h2>
+    <p class="subtitle">目标：Agent 必须先完成核验、且核验确实通过，才允许进入下一阶段。只用工具会被跳过，只用 prompt 会被无视。</p>
+    <div class="mermaid">
+<pre class="mermaid">
+flowchart LR
+    A["Agent 调用<br/>verify_state 工具"] --> B["工具执行确定性代码<br/>返回真实结果"]
+    B --> C["策略在 tool_result 求值<br/>读真实返回值"]
+    C -->|通过| D["写会话标签<br/>gate = verified"]
+    C -->|未通过| E["不写标签"]
+    D --> F["Agent 尝试进入下一阶段"]
+    E --> F
+    F --> G["策略在 tool_call 检查标签"]
+    G -->|gate = verified| H["放行"]
+    G -->|标签不符| I["拒绝<br/>并说明缺什么"]
+</pre>
+    </div>
+    <pre><code>guardrails:
+  policies:
+    # ① 核验结果 → 写标签（只在工具真的返回通过时才写）
+    record_verification:
+      type: function
+      function: my_pkg.policies.record_verification
+      on: [tool_result:verify_state]
+
+    # ② 下一阶段的操作 → 检查标签
+    gate_next_phase:
+      type: function
+      function: my_pkg.policies.require_verified
+      on: [tool_call:promote_release]</code></pre>
+    <div class="note ok">
+      <strong>为什么这样才防得住谎报：</strong>策略读的是<strong>工具的真实返回值</strong>（<code>tool_result</code> 阶段），不是模型的自述。模型声称“我已经核验过了”不会写出标签，因此第 ② 条策略照样拒绝。
+    </div>
+  </section>
+
+  <!-- ─────────────────────────── 人机交互 ─────────────────────────── -->
+  <section class="panel">
+    <h2>八、人机交互:ASK 如何送达到人</h2>
+    <table>
+      <thead><tr><th style="width:150px">通道</th><th>用途与性质</th></tr></thead>
+      <tbody>
+        <tr><td><strong>ASK → 收件箱</strong></td><td>策略返回 <code>ask</code> 时，运行时登记一条待处理请求并发出事件，<strong>跨会话聚合到收件箱页面</strong>。默认 <code>url</code> 模式会给出独立审批页链接。超时 / 拒绝 / 取消<strong>一律按未批准处理且不留副作用</strong>。</td></tr>
+        <tr><td><strong>跨用户送达</strong></td><td>把会话<strong>共享</strong>给具名用户后，该会话会进入对方的列表，其待办随之出现在<strong>对方的收件箱</strong>。子 Agent 发起的请求会被<strong>镜像到父会话</strong>，因此同样可达。</td></tr>
+        <tr><td><strong>审批权</strong></td><td>与访问权<strong>分开委派</strong>，默认关闭。<code>sys_session_share</code> 只能授访问级别，<strong>授不了审批权</strong>——Agent 不能自己给自己指定批准人。</td></tr>
+        <tr><td><strong>任务回执</strong></td><td>子 Agent 完成时<strong>自动唤醒</strong>编排者（<code>sys_read_inbox</code> 取结果）。这是<strong>机器对机器</strong>的通道，不是人机通道，<strong>禁止轮询</strong>。</td></tr>
+      </tbody>
+    </table>
+    <div class="note warn">
+      <strong>两个易混点。</strong>其一，<code>sys_read_inbox</code>（Agent 读子 Agent 回执）与 UI 的<strong>收件箱</strong>（人看待办）同名但不同物。其二，harness 自带的终端内审批提示与 omnigent 的策略 ASK 是<strong>两层</strong>——前者对无人值守的子 Agent 不可用（通常需绕过），后者始终有效。
+    </div>
+    <div class="note">
+      <strong>会话共享的权限粒度是会话级，不是单条审批级。</strong>为让某人批一条审批，必须把整个会话共享给他，他会看到全部往来。设计时需要接受或规避这一点。
+    </div>
+  </section>
+
+  <!-- ─────────────────────────── 沙箱与凭证 ─────────────────────────── -->
+  <section class="panel">
+    <h2>九、沙箱与凭证</h2>
+    <pre><code>os_env:
+  type: caller_process
+  cwd: .
+  sandbox:
+    type: linux_bwrap            # 省略则按平台默认（Linux/macOS 各一）
+    write_paths: [.]
+    allow_network: true
+    egress_rules: ["* pypi.org/**"]
+    credential_proxy:            # 明文根本不进沙箱，由 L7 出口代理挂上
+      - type: databricks_cli
+        profiles: [my-workspace]</code></pre>
+    <div class="grid2" style="margin-top:12px">
+      <article class="card"><h3>不声明 os_env</h3><p>该 Agent <strong>没有</strong>文件与 shell 工具。这是最干净的隔离，也让“工具层注入的凭证读不到明文”真正成立。</p></article>
+      <article class="card"><h3>声明了 os_env</h3><p>Agent 继承<strong>整个</strong>进程环境。凭证隔离不成立，只能靠“环境里不放多余凭证”约束；要更强则用沙箱 + <code>credential_proxy</code>。</p></article>
+    </div>
+    <div class="note">
+      环境变量支持产品前缀别名（<code>OMNIGENT_&lt;NAME&gt;</code> 作为 <code>&lt;NAME&gt;</code> 的回退），可避免与宿主机同名变量冲突。<strong>运行时不解析 <code>.env</code> 文件</strong>——须由启动命令注入，例如 <code>uv run --env-file .env</code>。
+    </div>
+  </section>
+
+  <!-- ─────────────────────────── 速查 ─────────────────────────── -->
+  <section class="panel">
+    <h2>十、速查:常见约束该放在哪</h2>
+    <table>
+      <thead><tr><th style="width:280px">你想保证的</th><th>放在哪</th><th style="width:80px">强度</th></tr></thead>
+      <tbody>
+        <tr><td>这个 Agent 不能碰文件 / 跑命令</td><td>不声明 <code>os_env</code></td><td><span class="badge strong">强</span></td></tr>
+        <tr><td>只暴露外部系统的部分能力</td><td>MCP 的 <code>tools:</code> 白名单</td><td><span class="badge strong">强</span></td></tr>
+        <tr><td>不许强推 / 硬重置 / 根删除</td><td><code>blast_radius</code>（恒 DENY，无审批放行）</td><td><span class="badge strong">强</span></td></tr>
+        <tr><td>推送 / 部署要人批准</td><td><code>blast_radius</code> 的 ASK 档</td><td><span class="badge strong">强</span></td></tr>
+        <tr><td>写入不许越出工作区</td><td><code>worktree_guard</code></td><td><span class="badge strong">强</span></td></tr>
+        <tr><td>这个 Agent 只读，不许改文件</td><td><code>read_only_os</code> + 不授予写工具</td><td><span class="badge strong">强</span></td></tr>
+        <tr><td>每轮派发的子 Agent 不超过 N 个</td><td><code>spawn_bounds</code></td><td><span class="badge strong">强</span></td></tr>
+        <tr><td>流程必须按顺序推进,不许跨越</td><td>策略状态机（<code>tool_result</code> 写标签 + <code>tool_call</code> 检查 + <code>condition</code> 标签门）</td><td><span class="badge strong">强</span></td></tr>
+        <tr><td>某步骤必须做且必须做成</td><td>确定性工具 + <code>tool_result</code> 策略 + <code>tool_call</code> 门控</td><td><span class="badge strong">强</span></td></tr>
+        <tr><td>启动前必须校验前置条件</td><td><strong>自写策略</strong>在首个工具调用上拦截——<strong>运行时没有 Agent 启动自检钩子</strong></td><td><span class="badge strong">强</span></td></tr>
+        <tr><td>某个计算要按确定逻辑做</td><td>Python 函数工具</td><td><span class="badge mid">中</span></td></tr>
+        <tr><td>某类任务的做法与套路</td><td>skill 正文</td><td><span class="badge weak">弱</span></td></tr>
+        <tr><td>整体角色设定与行为基调</td><td><code>prompt</code></td><td><span class="badge weak">弱</span></td></tr>
+      </tbody>
+    </table>
+    <div class="note danger">
+      <strong>三条最容易踩的坑。</strong>其一，<strong>skill 没有强制加载机制</strong>，把约束写进 skill 等于写进提示词。其二，<strong>无 shell 的 Agent 跑不了 skill 的 <code>scripts/</code></strong>，它们的确定性逻辑只能做成函数工具。其三，<strong>运行时没有启动自检钩子</strong>，“首轮预检”这类做法是写在提示词里靠模型自觉的，要硬约束必须自写策略。
+    </div>
+  </section>
+
+  <footer>omnigent Agent 定义与控制机制 · 2026-08-16</footer>
+</main>
+</body>
+</html>

@@ -1,0 +1,726 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>数据管线生命周期 Agent</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #f4f7fb;
+      --surface: #ffffff;
+      --surface-2: #f8fafc;
+      --text: #172033;
+      --muted: #64748b;
+      --line: #d9e2ef;
+      --blue: #1769e0;
+      --blue-soft: #eaf2ff;
+      --green: #168566;
+      --green-soft: #e8f7f1;
+      --purple: #7656c9;
+      --purple-soft: #f1edff;
+      --orange: #c96b19;
+      --orange-soft: #fff3e6;
+      --red: #b84747;
+      --shadow: 0 12px 34px rgba(31, 56, 88, 0.08);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0d1320;
+        --surface: #151d2c;
+        --surface-2: #111827;
+        --text: #eef4ff;
+        --muted: #9aabc1;
+        --line: #2d3a50;
+        --blue: #69a5ff;
+        --blue-soft: #172a48;
+        --green: #5bd6af;
+        --green-soft: #13372e;
+        --purple: #b49aff;
+        --purple-soft: #292342;
+        --orange: #ffae68;
+        --orange-soft: #402b19;
+        --red: #ff8f8f;
+        --shadow: none;
+      }
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      line-height: 1.6;
+    }
+    main { width: min(1500px, calc(100% - 36px)); margin: 0 auto; padding: 42px 0 64px; }
+    header { margin-bottom: 24px; }
+    h1 { margin: 0 0 8px; font-size: clamp(28px, 4vw, 46px); line-height: 1.2; letter-spacing: -0.03em; }
+    h2 { margin: 0 0 16px; font-size: 22px; }
+    h3 { margin: 0 0 8px; font-size: 17px; }
+    p { margin: 0; }
+    .subtitle { color: var(--muted); max-width: 920px; }
+    .metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 24px 0; }
+    .metric, .panel, .step-card, .role-card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+    }
+    .metric { padding: 16px 18px; }
+    .metric strong { display: block; font-size: 22px; color: var(--blue); }
+    .metric span { color: var(--muted); font-size: 13px; }
+    .panel { padding: 22px; margin-top: 18px; }
+    .svg-wrap { width: 100%; overflow-x: auto; }
+    svg { display: block; width: 100%; min-width: 980px; height: auto; }
+    .lane-title { font-size: 18px; font-weight: 600; fill: var(--text); }
+    .lane-sub { font-size: 12px; fill: var(--muted); }
+    .node-box { stroke-width: 1.5; }
+    .node-title { font-size: 15px; font-weight: 600; fill: var(--text); text-anchor: middle; }
+    .node-sub { font-size: 11.5px; fill: var(--muted); text-anchor: middle; }
+    .node-num { font-size: 12px; font-weight: 700; fill: #fff; text-anchor: middle; dominant-baseline: central; }
+    .arrow { fill: none; stroke: var(--muted); stroke-width: 2; marker-end: url(#arrow); }
+    .arrow-dashed { fill: none; stroke: var(--purple); stroke-width: 2; stroke-dasharray: 7 6; marker-end: url(#arrowPurple); }
+    .flow-label { font-size: 11px; fill: var(--muted); text-anchor: middle; }
+    .legend { display: flex; flex-wrap: wrap; gap: 18px; margin-top: 12px; color: var(--muted); font-size: 13px; }
+    .legend i { width: 11px; height: 11px; display: inline-block; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+    .steps { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+    .step-card { padding: 18px; display: grid; grid-template-columns: 42px 1fr; gap: 12px; }
+    .step-no { width: 36px; height: 36px; border-radius: 11px; display: grid; place-items: center; color: #fff; background: var(--blue); font-weight: 700; }
+    .step-card dl { margin: 10px 0 0; display: grid; grid-template-columns: 96px 1fr; gap: 6px 10px; font-size: 14px; }
+    .step-card dt { color: var(--muted); }
+    .step-card dd { margin: 0; }
+    .roles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+    .lifecycle { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
+    .role-card { padding: 16px; }
+    .role-card p { color: var(--muted); font-size: 14px; }
+    .phase-card { background: var(--surface-2); border: 1px solid var(--line); border-radius: 14px; padding: 16px; }
+    .phase-card ul { margin: 10px 0 0; padding-left: 18px; font-size: 13px; }
+    .phase-card li + li { margin-top: 5px; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; margin-bottom: 8px; background: var(--blue-soft); color: var(--blue); }
+    .warning { margin-top: 16px; padding: 14px 16px; border-left: 4px solid var(--orange); background: var(--orange-soft); border-radius: 8px; color: var(--text); }
+    .commands { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .builder-grid { display: grid; grid-template-columns: minmax(320px, .8fr) minmax(0, 1.2fr); gap: 14px; }
+    .builder-block { background: var(--surface-2); border: 1px solid var(--line); border-radius: 14px; padding: 16px; }
+    .builder-block ul { margin: 10px 0 0; padding-left: 20px; }
+    .builder-block li + li { margin-top: 5px; }
+    .repo-tree { white-space: pre; overflow-x: auto; font-size: 12px; line-height: 1.65; }
+    .version-map { display: grid; grid-template-columns: 130px 1fr; gap: 6px 12px; margin-top: 14px; font-size: 14px; }
+    .version-map dt { color: var(--muted); }
+    .version-map dd { margin: 0; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    pre { margin: 0; padding: 15px; border-radius: 12px; overflow-x: auto; background: var(--surface-2); border: 1px solid var(--line); color: var(--text); font-size: 12px; }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    footer { margin-top: 22px; color: var(--muted); font-size: 12px; text-align: right; }
+
+    @media (max-width: 900px) {
+      main { width: min(100% - 22px, 1500px); padding-top: 24px; }
+      .metrics, .roles, .lifecycle { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .steps, .commands { grid-template-columns: 1fr; }
+      .builder-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 520px) {
+      .metrics, .roles, .lifecycle { grid-template-columns: 1fr; }
+      .panel { padding: 15px; }
+      .step-card { grid-template-columns: 36px 1fr; padding: 14px; }
+      .step-card dl { grid-template-columns: 1fr; gap: 2px; }
+      .step-card dd { margin-bottom: 6px; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>数据管线生命周期 Agent</h1>
+      <p class="subtitle">以五个阶段说明三个人类角色与四个子 Agent 的职责、权限及 OpenMetadata 交互，并以约 1451 万条书目数据的搜索管线作为开发与验收示例。</p>
+      <p class="subtitle" style="margin-top:6px">本文档与 <code>specs/001-data-pipeline-agent/spec.md</code> 保持一致；规范以 spec 为准，本文档提供流程视图与书目管线实例。</p>
+    </header>
+
+    <section class="metrics" aria-label="当前规模">
+      <div class="metric"><strong>14,517,522</strong><span>有效书目记录</span></div>
+      <div class="metric"><strong>59</strong><span>Curated Parquet 文件</span></div>
+      <div class="metric"><strong>36</strong><span>受控学科标签</span></div>
+      <div class="metric"><strong>5</strong><span>Corpus MCP 只读工具</span></div>
+    </section>
+
+    <section class="panel" id="roles">
+      <h2>角色模型：三个人类角色 + 四个子 Agent</h2>
+      <p class="subtitle" style="margin-bottom:14px">凭证边界即职责边界。<strong>没有任何 Agent 持有平台管理凭证</strong>——需要该权限的操作一律由平台管理员亲手执行。</p>
+      <div class="roles">
+        <article class="role-card">
+          <span class="badge">人 · 平台管理员</span>
+          <h3>治理授权与亲手执行</h3>
+          <p>评审并合并治理变更请求，<strong>亲手</strong>在 OpenMetadata 中创建 Domain、Data Product、Service、角色与策略。把守 <strong>G2</strong>。管理员凭证不进入 omnigent。</p>
+        </article>
+        <article class="role-card">
+          <span class="badge">人 · 开发负责人</span>
+          <h3>需求确认与代码合并</h3>
+          <p>确认 Spec、评审并合并代码变更请求、批准开发过程中的推送。把守 <strong>G1</strong> 与 <strong>G3</strong>。</p>
+        </article>
+        <article class="role-card">
+          <span class="badge">人 · 运维负责人</span>
+          <h3>上线批准与回滚决策</h3>
+          <p>批准线上指向切换、决定回滚、处理运行告警。把守 <strong>G4</strong>。</p>
+        </article>
+      </div>
+      <div class="roles" style="grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top:12px">
+        <article class="role-card">
+          <span class="badge">Agent · 架构开发</span>
+          <h3>阶段 1、3</h3>
+          <p>Spec 规划、代码与测试、<strong>调度作业定义</strong>、开变更请求。凭证：代码仓库写、测试环境、OpenMetadata <strong>只读 bot</strong>（查数据源、中间表与落地表的结构与归属）。<strong>唯一具备 shell 的子 Agent</strong>，写入限于其工作区。</p>
+        </article>
+        <article class="role-card">
+          <span class="badge">Agent · 治理审计</span>
+          <h3>阶段 1、2</h3>
+          <p>可行性评审、生成治理变更请求包、<strong>人执行后只读核验</strong>、漂移检测。凭证：OpenMetadata <strong>只读 bot</strong>。无 shell，不执行任何治理写操作。</p>
+        </article>
+        <article class="role-card">
+          <span class="badge">Agent · 运维发布</span>
+          <h3>阶段 4</h3>
+          <p>触发 Airflow 作业、判定质量门禁、上线切换、回滚、同步运行状态。凭证：Airflow 操作、索引构建、线上指向、OpenMetadata <strong>Writer bot</strong>。无 shell，够不着源码。</p>
+        </article>
+        <article class="role-card">
+          <span class="badge">Agent · 服务验证</span>
+          <h3>阶段 5</h3>
+          <p>以最终用户视角只读消费管线服务，同时充当权限边界的活体检验。凭证：<strong>只读 bot</strong>。无 shell。</p>
+        </article>
+      </div>
+      <div class="warning"><strong>两条关键分界：</strong>其一，<strong>治理审计 Agent 不执行任何治理写操作</strong>——阶段 2 的操作简单但权限极高、每条管线只做一次，自动化收益小、风险大，故改为出手册、人执行、Agent 只读核验。其二，<strong>调度作业的“定义”与“运行”分属两个 Agent</strong>——定义是代码，走变更请求；运行是操作，由运维发布 Agent 触发。</div>
+    </section>
+
+    <section class="panel" id="lifecycle-summary">
+      <h2>五阶段主责总览</h2>
+      <div class="lifecycle">
+        <article class="phase-card">
+          <span class="badge">阶段 1 · 架构开发 + 治理审计</span>
+          <h3>管线设计</h3>
+          <ul>
+            <li>明确数据源、字段、质量规则和搜索需求。</li>
+            <li>设计 Raw → Curated → Index → MCP。</li>
+            <li>定义 OM 资产模型、角色分工、验收标准和版本策略。</li>
+            <li>输出 Spec、数据契约和实施计划。</li>
+            <li>治理审计 Agent 只读读取目录现状，评审平台可行性与权限边界。</li>
+            <li>通过 <strong>G1 Spec 冻结</strong>后方可进入下一阶段。</li>
+          </ul>
+        </article>
+        <article class="phase-card">
+          <span class="badge">阶段 2 · 平台管理员亲手执行</span>
+          <h3>治理空间初始化</h3>
+          <ul>
+            <li>治理审计 Agent 产出<strong>变更请求包</strong>：操作手册 + 状态断言 + 只读核验脚本。</li>
+            <li>包提交到 GitHub，<strong>合并即批准</strong>；异步进行，不阻塞任何会话。</li>
+            <li>平台管理员<strong>亲手</strong>在 OM 与检索平台执行手册。</li>
+            <li>治理审计 Agent 只读核验实际状态，核验通过才过 <strong>G2</strong>。</li>
+            <li>带写权限的 bot 也在此批创建与授权。</li>
+          </ul>
+        </article>
+        <article class="phase-card">
+          <span class="badge">阶段 3 · 架构开发</span>
+          <h3>管线开发与验收</h3>
+          <ul>
+            <li>按 Spec 开发数据处理、服务、OM 同步与<strong>调度作业定义</strong>。</li>
+            <li>以<strong>只读</strong>身份访问 OM，查数据源定义、中间表与落地表的结构与归属。</li>
+            <li>在独立工作区与任务分支中工作，写入受限于该工作区。</li>
+            <li>为 Spec 中每条验收用例产出自动化测试并跑通。</li>
+            <li>开 Pull Request；<strong>Agent 不合并</strong>，由开发负责人合并并打标签。</li>
+            <li>过 <strong>G3</strong> 后交接<strong>不可变制品引用</strong>，运维侧拿不到源码位置。</li>
+          </ul>
+        </article>
+        <article class="phase-card">
+          <span class="badge">阶段 4 · 运维发布</span>
+          <h3>上线与日常运维</h3>
+          <ul>
+            <li>按制品引用部署作业定义到 <strong>OM 自带的 Airflow</strong>，按计划或事件触发。</li>
+            <li>数据变化后创建新快照与新版本索引，禁止覆盖旧版本。</li>
+            <li>质量门禁全绿后，切换 books-current 作为一次<strong>独立审批</strong>送达运维负责人（<strong>G4</strong>）。</li>
+            <li>向 OM 同步版本、计数、质量和运行状态。</li>
+            <li>失败时保持旧版本或回滚；仅平台对象/策略变更才升级平台管理员。</li>
+          </ul>
+        </article>
+        <article class="phase-card">
+          <span class="badge">阶段 5 · 服务验证</span>
+          <h3>配置与使用</h3>
+          <ul>
+            <li>服务验证 Agent 以<strong>只读 bot</strong> 启动，不持有任何写凭证。</li>
+            <li>先用 OM MCP 理解语义，再用 Corpus MCP 搜索书籍。</li>
+            <li>每条结果带命中原因，不暴露内部路径类字段，分页受限。</li>
+            <li>任何写入、索引创建、指向切换尝试都必须失败。</li>
+            <li>本阶段只读，<strong>不设闸门</strong>——它是 G4 之后的验证动作。</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section class="panel" id="gates">
+      <h2>四道人工闸门</h2>
+      <p class="subtitle" style="margin-bottom:14px">阶段是职责划分，闸门是流程卡点，两者不必一一对应。闸门确认与单个危险操作的审批是<strong>两种机制</strong>，一方通过不隐含另一方通过。</p>
+      <div class="roles" style="grid-template-columns: repeat(4, minmax(0, 1fr))">
+        <article class="role-card">
+          <span class="badge">G1 · Spec 冻结</span>
+          <h3>阶段 1 → 2</h3>
+          <p>Spec 条目齐备、可行性评审结论为“可实施”、权限申请清单已确认。<br><strong>把守人：</strong>开发负责人<br><strong>通道：</strong>对话轮次</p>
+        </article>
+        <article class="role-card">
+          <span class="badge">G2 · 治理落地</span>
+          <h3>阶段 2</h3>
+          <p>变更请求包已合并、平台管理员已亲手执行、<strong>只读核验通过</strong>。<br><strong>把守人：</strong>平台管理员<br><strong>通道：</strong>变更请求包（异步）</p>
+        </article>
+        <article class="role-card">
+          <span class="badge">G3 · 发布就绪</span>
+          <h3>阶段 3 → 4</h3>
+          <p>测试全绿、代码变更请求已合并并打标签、制品引用已产出。<br><strong>把守人：</strong>开发负责人<br><strong>通道：</strong>对话轮次 + 合并</p>
+        </article>
+        <article class="role-card">
+          <span class="badge">G4 · 上线</span>
+          <h3>阶段 4 内</h3>
+          <p>新版本已构建、质量门禁全绿，仅剩切换线上指向。<br><strong>把守人：</strong>运维负责人<br><strong>通道：</strong>交互式审批</p>
+        </article>
+      </div>
+      <h3 style="margin-top:18px">四条交互通道,职责不重叠</h3>
+      <div class="version-map" style="grid-template-columns: 150px 1fr">
+        <dt>任务回执</dt><dd>子 Agent 完成 → 唤醒编排者。机器对机器，完成即自动唤醒，<strong>禁止轮询</strong>。</dd>
+        <dt>交互式审批</dt><dd>“<strong>我</strong>可以做吗”——Agent 亲自执行危险操作前请求许可。经<strong>收件箱</strong>送达，阻塞该次操作，秒~天。</dd>
+        <dt>变更请求包</dt><dd>“请<strong>你</strong>来做”——需要人亲自执行的高权限操作。载体在 GitHub，待办经<strong>收件箱</strong>送达。</dd>
+        <dt>对话轮次</dt><dd>阶段闸门的推进确认。编排者结束回合等待人回应。</dd>
+      </div>
+      <div class="warning"><strong>许可与委派是两回事：</strong>交互式审批批准后 <em>Agent 继续执行</em>；变更请求包批准后 <em>由人执行</em>，Agent 事后只做核验。</div>
+
+      <h3 style="margin-top:18px">审批通道的落地形态:收件箱</h3>
+      <p class="subtitle">待处理的审批请求会<strong>跨会话聚合</strong>到运行时的收件箱页面，人不需要待在某个会话里。这解决了本设计最棘手的一个问题：<strong>四道闸门涉及三个不同的人，而会话通常只由其中一人发起</strong>。</p>
+      <div class="version-map" style="grid-template-columns: 40px 1fr">
+        <dt>①</dt><dd>会话被<strong>共享</strong>给目标用户（按邮箱授予具名用户，可设读/编辑/管理三级）。</dd>
+        <dt>②</dt><dd>会话列表按“该用户是否有权限记录”过滤，因此<strong>共享给我的会话会出现在我的列表中</strong>。</dd>
+        <dt>③</dt><dd>收件箱基于该列表拉取各会话的待处理审批请求并聚合。</dd>
+        <dt>④</dt><dd>子 Agent 发起的请求会被服务端<strong>镜像到父会话</strong>，因此同样可达。</dd>
+      </div>
+      <div class="warning" style="margin-top:12px"><strong>三条必须落实的约束：</strong>其一，<strong>审批权是单独委派的，Agent 授不了</strong>——共享工具只能授访问级别，审批权默认关闭，必须由会话所有者单独委派。这是刻意的：Agent 不能自己给自己指定批准人。其二，<strong>Agent 的共享能力默认关闭</strong>，需显式开启“仅具名用户”一档，<strong>不得开匿名公开档</strong>。其三，<strong>权限是会话级而非单条审批级</strong>——为让管理员看到一条治理审批，必须把整个会话共享给他。<br><br>最后一条是<strong>已知的权限放大</strong>，本设计选择接受：三个人类角色本就是同一条管线的协作者，互相可见有利于透明与审计。</div>
+    </section>
+
+    <section class="panel" id="design">
+      <h2>阶段 1：管线设计——架构开发 Agent 主责</h2>
+      <div class="steps">
+        <article class="step-card">
+          <div class="step-no">1</div><div><h3>需求与数据契约</h3><dl><dt>架构开发 Agent</dt><dd>明确数据源、字段、质量规则、搜索场景、数据规模和更新频率；缺少影响设计的关键信息时<strong>提问而非静默取默认值</strong>。</dd><dt>输出</dt><dd>数据契约、字段定义、质量阈值和验收用例。</dd></dl></div>
+        </article>
+        <article class="step-card">
+          <div class="step-no">2</div><div><h3>技术与治理设计</h3><dl><dt>架构开发 Agent</dt><dd>设计分层链路，定义 OM 资产模型、角色分工、版本与回滚策略。</dd><dt>治理审计 Agent</dt><dd>以<strong>只读</strong>方式读取目录现状，评审平台可行性与权限边界，给出“可实施 / 需修改”的明确结论。</dd><dt>输出</dt><dd>统一 Spec、实施计划和权限申请清单。</dd></dl></div>
+        </article>
+      </div>
+      <div class="warning"><strong>职责边界：</strong>架构开发 Agent 提出业务定义；治理审计 Agent 基于目录实时状态评审。通过 <strong>G1</strong> 前不生成变更请求包，更不创建任何治理资产。</div>
+    </section>
+
+    <section class="panel" id="governance-init">
+      <h2>阶段 2：治理落地——Agent 出手册，平台管理员亲手执行</h2>
+      <p class="subtitle" style="margin-bottom:16px">这些操作简单但权限极高，且每条管线只做一次——自动化收益小、风险大。因此 Agent <strong>不执行</strong>，只出手册与核验。</p>
+      <div class="steps">
+        <article class="step-card">
+          <div class="step-no">1</div><div><h3>生成变更请求包</h3><dl><dt>治理审计 Agent</dt><dd>读取目录<strong>实时状态</strong>（现有资产、命名冲突、当前策略），产出三件产物：逐步操作手册、执行后状态断言、只读核验脚本。手册每一步含操作、参数、预期结果、核验方式与回滚步骤。</dd><dt>提交</dt><dd>以 Pull Request 形式提交到 GitHub——<strong>变更请求本身就是审批载体</strong>。</dd></dl></div>
+        </article>
+        <article class="step-card">
+          <div class="step-no">2</div><div><h3>审批与执行</h3><dl><dt>平台管理员</dt><dd>评审并合并 PR（<strong>合并即批准</strong>），随后<strong>亲手</strong>在 OpenMetadata 与检索平台按手册执行。</dd><dt>不阻塞</dt><dd>审批与执行都在会话之外完成，编排者结束回合；系统不轮询审批状态，由人回到会话重新驱动。</dd></dl></div>
+        </article>
+        <article class="step-card">
+          <div class="step-no">3</div><div><h3>只读核验</h3><dl><dt>治理审计 Agent</dt><dd>以只读方式逐条比对断言，失败项指明期望值与实际值。核验幂等，重复执行结果一致且无副作用。</dd><dt>G2 闸门</dt><dd>任一断言不满足则<strong>不通过</strong>，并给出需要补做的具体步骤。</dd></dl></div>
+        </article>
+      </div>
+      <h3 style="margin-top:18px">bot 身份分两批创建,按风险切分</h3>
+      <p class="subtitle">这里有个引导顺序问题：治理审计 Agent 必须先能读目录才能生成手册，而 bot 正是手册要建的东西之一。</p>
+      <div class="version-map" style="grid-template-columns: 130px 1fr">
+        <dt>第 0 批（手工）</dt><dd>平台管理员手工创建<strong>治理审计 bot（只读）</strong>。仅此一个，权限最低，不走流程。系统在它缺失时明确报错，不尝试自行创建。</dd>
+        <dt>第 1 批（走 G2）</dt><dd>其余 bot（架构开发只读、服务验证只读、运维发布 Writer）随变更请求包创建并授权，由平台管理员亲手执行。创建 bot 本就是平台级治理操作，天然属于 G2。</dd>
+      </div>
+      <div class="warning"><strong>启动自检必须含负向探测：</strong>只验“令牌可用”不够——一个被误授写权限的只读 bot <strong>不会有任何症状</strong>，权限边界却已失效。因此启动时须对每个 bot 做权限自检，其中<strong>只读 bot 的写操作探测必须被 OpenMetadata 拒绝</strong>；任一 bot 权限宽于职责，系统拒绝启动并指明是哪个 bot 多了哪一项。</div>
+    </section>
+
+    <section class="panel">
+      <h2>阶段 3 示例：书籍搜索管线</h2>
+      <p class="subtitle" style="margin-bottom:16px">下面以当前书籍搜索管线说明阶段 3 的一种实现方式。Raw CSV、Parquet、OpenSearch 和 MCP 是本项目的技术选择，不是所有数据管线必须采用的固定模板。</p>
+      <div class="svg-wrap">
+        <svg viewBox="0 0 1440 650" role="img" aria-labelledby="diagram-title diagram-desc">
+          <title id="diagram-title">图书搜索数据和元数据管线</title>
+          <desc id="diagram-desc">上方是数据构建和查询链路，下方是 OpenMetadata 元数据登记和 MCP API 目录。</desc>
+          <defs>
+            <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--muted)"/>
+            </marker>
+            <marker id="arrowPurple" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--purple)"/>
+            </marker>
+            <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+              <feDropShadow dx="0" dy="5" stdDeviation="7" flood-color="#18243a" flood-opacity="0.10"/>
+            </filter>
+          </defs>
+
+          <rect x="18" y="54" width="1404" height="240" rx="22" fill="var(--surface-2)" stroke="var(--line)"/>
+          <rect x="18" y="344" width="1404" height="248" rx="22" fill="var(--purple-soft)" stroke="var(--line)"/>
+          <text x="42" y="88" class="lane-title">数据构建与在线查询</text>
+          <text x="42" y="109" class="lane-sub">实际处理数据、生成索引并响应 Agent 查询</text>
+          <text x="42" y="378" class="lane-title">OpenMetadata 治理与服务发现</text>
+          <text x="42" y="399" class="lane-sub">登记目录卡片、语义、血缘与权限边界，不保存逐书记录</text>
+
+          <path class="arrow" d="M218 186 H258"/>
+          <path class="arrow" d="M428 186 H468"/>
+          <path class="arrow" d="M638 186 H678"/>
+          <path class="arrow" d="M848 186 H888"/>
+          <path class="arrow" d="M1058 186 H1098"/>
+          <path class="arrow" d="M1268 186 H1308"/>
+
+          <g transform="translate(48 132)" filter="url(#softShadow)">
+            <rect class="node-box" width="170" height="108" rx="16" fill="var(--blue-soft)" stroke="var(--blue)"/>
+            <circle cx="20" cy="20" r="13" fill="var(--blue)"/><text x="20" y="20" class="node-num">1</text>
+            <text x="85" y="45" class="node-title">Raw CSV</text>
+            <text x="85" y="68" class="node-sub">原始不可变输入</text>
+            <text x="85" y="87" class="node-sub">31 个字段 · 约 18 GB</text>
+          </g>
+          <g transform="translate(258 132)" filter="url(#softShadow)">
+            <rect class="node-box" width="170" height="108" rx="16" fill="var(--blue-soft)" stroke="var(--blue)"/>
+            <circle cx="20" cy="20" r="13" fill="var(--blue)"/><text x="20" y="20" class="node-num">2</text>
+            <text x="85" y="45" class="node-title">Profile</text>
+            <text x="85" y="68" class="node-sub">Schema / 空值 / 学科</text>
+            <text x="85" y="87" class="node-sub">输出 profile.json</text>
+          </g>
+          <g transform="translate(468 132)" filter="url(#softShadow)">
+            <rect class="node-box" width="170" height="108" rx="16" fill="var(--green-soft)" stroke="var(--green)"/>
+            <circle cx="20" cy="20" r="13" fill="var(--green)"/><text x="20" y="20" class="node-num">3</text>
+            <text x="85" y="45" class="node-title">Curate</text>
+            <text x="85" y="68" class="node-sub">清洗 / 类型规范化</text>
+            <text x="85" y="87" class="node-sub">不可变 Parquet 快照</text>
+          </g>
+          <g transform="translate(678 132)" filter="url(#softShadow)">
+            <rect class="node-box" width="170" height="108" rx="16" fill="var(--green-soft)" stroke="var(--green)"/>
+            <circle cx="20" cy="20" r="13" fill="var(--green)"/><text x="20" y="20" class="node-num">4</text>
+            <text x="85" y="45" class="node-title">OpenSearch</text>
+            <text x="85" y="68" class="node-sub">版本索引 + Bulk</text>
+            <text x="85" y="87" class="node-sub">全量计数校验</text>
+          </g>
+          <g transform="translate(888 132)" filter="url(#softShadow)">
+            <rect class="node-box" width="170" height="108" rx="16" fill="var(--green-soft)" stroke="var(--green)"/>
+            <circle cx="20" cy="20" r="13" fill="var(--green)"/><text x="20" y="20" class="node-num">5</text>
+            <text x="85" y="45" class="node-title">books-current</text>
+            <text x="85" y="68" class="node-sub">稳定 Alias</text>
+            <text x="85" y="87" class="node-sub">校验后原子切换</text>
+          </g>
+          <g transform="translate(1098 132)" filter="url(#softShadow)">
+            <rect class="node-box" width="170" height="108" rx="16" fill="var(--orange-soft)" stroke="var(--orange)"/>
+            <circle cx="20" cy="20" r="13" fill="var(--orange)"/><text x="20" y="20" class="node-num">6</text>
+            <text x="85" y="45" class="node-title">Corpus MCP</text>
+            <text x="85" y="68" class="node-sub">5 个只读工具</text>
+            <text x="85" y="87" class="node-sub">localhost:8787/mcp</text>
+          </g>
+          <g transform="translate(1308 132)" filter="url(#softShadow)">
+            <rect class="node-box" width="100" height="108" rx="16" fill="var(--orange-soft)" stroke="var(--orange)"/>
+            <circle cx="20" cy="20" r="13" fill="var(--orange)"/><text x="20" y="20" class="node-num">7</text>
+            <text x="50" y="52" class="node-title">Codex</text>
+            <text x="50" y="74" class="node-sub">Agent</text>
+          </g>
+
+          <path class="arrow-dashed" d="M343 240 V440 H420"/>
+          <path class="arrow-dashed" d="M553 240 V415 H420"/>
+          <path class="arrow-dashed" d="M763 240 V440 H420"/>
+          <path class="arrow-dashed" d="M1183 240 V440 H1050"/>
+          <path class="arrow-dashed" d="M770 485 H840"/>
+          <path class="arrow-dashed" d="M1210 485 H1350 V240"/>
+
+          <text x="344" y="327" class="flow-label">画像与结构</text>
+          <text x="763" y="327" class="flow-label">索引与血缘</text>
+          <text x="1183" y="327" class="flow-label">登记访问入口</text>
+
+          <g transform="translate(80 430)" filter="url(#softShadow)">
+            <rect class="node-box" width="340" height="110" rx="16" fill="var(--surface)" stroke="var(--purple)"/>
+            <text x="170" y="38" class="node-title">Metadata Bootstrap</text>
+            <text x="170" y="64" class="node-sub">Domain · Data Product · Glossary</text>
+            <text x="170" y="84" class="node-sub">Table · SearchIndex · Pipeline · Lineage</text>
+          </g>
+          <g transform="translate(430 430)" filter="url(#softShadow)">
+            <rect class="node-box" width="340" height="110" rx="16" fill="var(--surface)" stroke="var(--purple)"/>
+            <text x="170" y="38" class="node-title">图书书目数据集</text>
+            <text x="170" y="64" class="node-sub">Domain：学科数据</text>
+            <text x="170" y="84" class="node-sub">统一聚合数据、索引、管线与接口</text>
+          </g>
+          <g transform="translate(840 430)" filter="url(#softShadow)">
+            <rect class="node-box" width="370" height="110" rx="16" fill="var(--surface)" stroke="var(--purple)"/>
+            <text x="185" y="36" class="node-title">MCP API 资产登记</text>
+            <text x="185" y="62" class="node-sub">API Service → Collection → POST /mcp</text>
+            <text x="185" y="84" class="node-sub">描述地址、工具、鉴权和 Data Product 关联</text>
+          </g>
+        </svg>
+      </div>
+      <div class="legend" aria-label="图例">
+        <span><i style="background:var(--blue-soft);border:1px solid var(--blue)"></i>Raw 与画像</span>
+        <span><i style="background:var(--green-soft);border:1px solid var(--green)"></i>Curated 与索引</span>
+        <span><i style="background:var(--orange-soft);border:1px solid var(--orange)"></i>访问层</span>
+        <span><i style="background:var(--purple-soft);border:1px solid var(--purple)"></i>OpenMetadata 元数据层</span>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>阶段 3 示例：关键开发与验收动作</h2>
+      <div class="steps">
+        <article class="step-card">
+          <div class="step-no">1</div><div><h3>准备权威数据</h3><dl><dt>本例实现</dt><dd>画像 Raw CSV，清洗并生成不可变 Curated Parquet 快照。</dd><dt>验收</dt><dd>Schema、记录数、异常率和关键字段满足 Spec。</dd></dl></div>
+        </article>
+        <article class="step-card">
+          <div class="step-no">2</div><div><h3>构建查询副本</h3><dl><dt>本例实现</dt><dd>从 Parquet 创建 OpenSearch 版本索引，校验通过后切换 books-current。</dd><dt>验收</dt><dd>索引计数、Gold Set、查询性能和回滚路径通过测试。</dd></dl></div>
+        </article>
+        <article class="step-card">
+          <div class="step-no">3</div><div><h3>发布受控访问服务</h3><dl><dt>本例实现</dt><dd>部署只读 Corpus Search MCP，提供书目搜索、详情、学科和统计工具。</dd><dt>验收</dt><dd>工具响应、分页、字段隐藏、只读权限和错误处理符合约定。</dd></dl></div>
+        </article>
+        <article class="step-card">
+          <div class="step-no">4</div><div><h3>同步治理信息</h3><dl><dt>本例实现</dt><dd>在 OM 登记 Table、SearchIndex、Pipeline、Glossary、Lineage 和 MCP API 资产。</dd><dt>验收</dt><dd>资产归属、版本、质量、血缘和访问入口与实际部署一致。</dd></dl></div>
+        </article>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>阶段 3 示例：代码维护与发布</h2>
+      <div class="builder-grid">
+        <article class="builder-block">
+          <h3>Git 仓库维护范围</h3>
+          <pre class="repo-tree"><code>science-data-search/
+├── src/book_corpus/
+│   ├── profile.py        # CSV 画像
+│   ├── curate.py         # CSV → Parquet
+│   ├── opensearch.py     # 索引与 Alias
+│   ├── openmetadata.py   # OM 元数据同步
+│   └── mcp_server.py     # Corpus MCP
+├── scripts/
+│   ├── register_mcp_api.py
+│   └── verify_e2e.py
+├── deploy/               # 镜像与 Compose
+├── tests/                # 自动化测试
+└── docs/
+    └── openmetadata-corpus-agent-architecture.md</code></pre>
+          <ul>
+            <li>Git 是管线源码、部署配置和 Spec 的唯一事实来源。</li>
+            <li>架构或范围变化先修改统一 Spec，再修改实现与测试。</li>
+            <li>OpenMetadata 保存目录、Owner、血缘和运行版本，不保存源代码。</li>
+          </ul>
+        </article>
+        <article class="builder-block">
+          <h3>推荐发布流程</h3>
+          <div class="svg-wrap">
+            <svg viewBox="0 0 930 330" role="img" aria-labelledby="release-title release-desc" style="min-width:700px">
+              <title id="release-title">架构开发 Agent 的 GitHub 发布流程</title>
+              <desc id="release-desc">从创建分支、修改规范和代码、测试、Pull Request、合并打标签，到构建镜像、执行管线并同步 OpenMetadata。</desc>
+              <defs>
+                <marker id="releaseArrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+                  <path d="M0 0 L10 5 L0 10 z" fill="var(--muted)"/>
+                </marker>
+              </defs>
+              <path d="M126 86 H158 M276 86 H308 M426 86 H458 M576 86 H608 M726 86 H758" class="arrow" marker-end="url(#releaseArrow)"/>
+              <path d="M818 128 V198 H720" class="arrow" marker-end="url(#releaseArrow)"/>
+              <path d="M648 240 H576 M504 240 H426 M354 240 H276" class="arrow" marker-end="url(#releaseArrow)"/>
+
+              <g transform="translate(18 44)"><rect width="108" height="84" rx="13" fill="var(--blue-soft)" stroke="var(--blue)"/><text x="54" y="36" class="node-title">Git 分支</text><text x="54" y="58" class="node-sub">feature/*</text></g>
+              <g transform="translate(168 44)"><rect width="108" height="84" rx="13" fill="var(--blue-soft)" stroke="var(--blue)"/><text x="54" y="34" class="node-title">修改 Spec</text><text x="54" y="57" class="node-sub">代码与测试</text></g>
+              <g transform="translate(318 44)"><rect width="108" height="84" rx="13" fill="var(--blue-soft)" stroke="var(--blue)"/><text x="54" y="34" class="node-title">自动测试</text><text x="54" y="57" class="node-sub">验收检查</text></g>
+              <g transform="translate(468 44)"><rect width="108" height="84" rx="13" fill="var(--purple-soft)" stroke="var(--purple)"/><text x="54" y="34" class="node-title">Pull Request</text><text x="54" y="57" class="node-sub">Review</text></g>
+              <g transform="translate(618 44)"><rect width="108" height="84" rx="13" fill="var(--purple-soft)" stroke="var(--purple)"/><text x="54" y="34" class="node-title">合并</text><text x="54" y="57" class="node-sub">Git Tag</text></g>
+              <g transform="translate(768 44)"><rect width="108" height="84" rx="13" fill="var(--green-soft)" stroke="var(--green)"/><text x="54" y="34" class="node-title">构建镜像</text><text x="54" y="57" class="node-sub">版本固定</text></g>
+
+              <g transform="translate(612 198)"><rect width="108" height="84" rx="13" fill="var(--green-soft)" stroke="var(--green)"/><text x="54" y="34" class="node-title">执行管线</text><text x="54" y="57" class="node-sub">新快照/索引</text></g>
+              <g transform="translate(462 198)"><rect width="108" height="84" rx="13" fill="var(--green-soft)" stroke="var(--green)"/><text x="54" y="34" class="node-title">质量验收</text><text x="54" y="57" class="node-sub">计数/Gold Set</text></g>
+              <g transform="translate(312 198)"><rect width="108" height="84" rx="13" fill="var(--orange-soft)" stroke="var(--orange)"/><text x="54" y="34" class="node-title">切换 Alias</text><text x="54" y="57" class="node-sub">books-current</text></g>
+              <g transform="translate(162 198)"><rect width="108" height="84" rx="13" fill="var(--purple-soft)" stroke="var(--purple)"/><text x="54" y="34" class="node-title">同步 OM</text><text x="54" y="57" class="node-sub">版本/状态/血缘</text></g>
+            </svg>
+          </div>
+          <dl class="version-map">
+            <dt>代码版本</dt><dd>book-corpus-pipeline-v1.2.0</dd>
+            <dt>制品版本</dt><dd>book-corpus-pipeline:1.2.0</dd>
+            <dt>数据快照</dt><dd>version0612</dd>
+            <dt>查询副本</dt><dd>books-version0612-v1</dd>
+            <dt>线上指向</dt><dd>books-current</dd>
+          </dl>
+          <p class="subtitle" style="margin-top:10px">五类版本<strong>互相独立</strong>，不得用同一个标识兼表两类。“哪个版本在线”既不是分支状态也不是标签状态，而是<strong>线上指向</strong>的状态。</p>
+        </article>
+      </div>
+      <div class="warning"><strong>职责关系：</strong>GitHub 管理“管线如何实现”；Airflow 负责“实际执行”；OpenMetadata 管理“管线是什么、处理哪些资产、由谁负责以及运行了哪个版本”。<br><br><strong>分支策略：</strong>主干开发 + 标签发布，<strong>不设 develop / release / prod 这类长期环境分支</strong>——环境差异不在代码里。开发与线上的区别只在于跑的是哪个数据快照、线上指向指向哪个查询副本。因此回滚是把指向指回去，既不回退代码也不重建数据。</div>
+    </section>
+
+    <section class="panel">
+      <h2>阶段 3 示例：当前项目执行命令</h2>
+      <div class="commands">
+        <pre><code># 1. Profile
+PYTHONPATH=src python3 -m book_corpus profile \
+  --input corpus_es_book_dedup_1451w_deduped_version0611.csv \
+  --output data/reports/version0611/profile.json
+
+# 2. Curate
+.venv/bin/book-corpus curate \
+  --input corpus_es_book_dedup_1451w_deduped_version0611.csv \
+  --output-root data/curated \
+  --report-root data/reports \
+  --quarantine-root data/quarantine \
+  --snapshot-version version0611</code></pre>
+        <pre><code># 3. 构建与切换索引
+.venv/bin/book-corpus index \
+  --input data/curated/snapshot_version=version0611 \
+  --index books-version0611-v1 \
+  --alias books-current \
+  --checkpoint data/reports/version0611/index-checkpoint.json \
+  --promote
+
+# 4. 登记元数据
+.venv/bin/book-corpus metadata-bootstrap \
+  --profile data/reports/version0611/profile.json</code></pre>
+        <pre><code># 5. 启动 Corpus MCP
+docker compose --env-file .env \
+  -f deploy/docker-compose-corpus-mcp.yml up -d
+
+# 6. 登记 MCP API 资产
+.venv/bin/python scripts/register_mcp_api.py</code></pre>
+        <pre><code># Agent 访问入口
+OpenMetadata MCP: http://localhost:8585/mcp
+Corpus Search MCP: http://localhost:8787/mcp
+
+# 路由
+定义 / Glossary / 血缘 → OpenMetadata MCP
+书籍 / ISBN / 学科过滤 → Corpus Search MCP</code></pre>
+      </div>
+    </section>
+
+    <section class="panel" id="operations">
+      <h2>阶段 4：上线与日常运维——运维发布 Agent 主责</h2>
+      <p class="subtitle" style="margin-bottom:16px">调度器<strong>定死为 OpenMetadata 自带的 Airflow</strong>，不引入第二套独立部署的调度系统。运维发布 Agent <strong>无 shell、够不着源码</strong>，只能部署<strong>制品引用所指向的</strong>作业定义。OpenMetadata 展示资产、血缘和运行结果，但登记的 Pipeline 实体<strong>是目录记录、不是执行主体</strong>——执行方始终是调度器。</p>
+      <div class="steps">
+        <article class="step-card">
+          <div class="step-no">1</div><div><h3>检测数据变化</h3><dl><dt>执行者</dt><dd>OpenMetadata 自带的 Airflow</dd><dt>动作</dt><dd>按日或按文件到达事件检查路径、大小、修改时间和校验和；无变化则结束。</dd><dt>权限</dt><dd>Raw 目录只读。</dd></dl></div>
+        </article>
+        <article class="step-card">
+          <div class="step-no">2</div><div><h3>生成新版本</h3><dl><dt>执行者</dt><dd>运维发布 Agent（Writer bot + Airflow 操作凭证）</dd><dt>动作</dt><dd>以新的 snapshot_version 执行 Profile、Curate 和版本索引构建，禁止覆盖旧 Parquet 与旧索引。</dd><dt>权限</dt><dd>文件写入、OpenSearch Builder、OM Writer。</dd></dl></div>
+        </article>
+        <article class="step-card">
+          <div class="step-no">3</div><div><h3>质量门禁与发布</h3><dl><dt>执行者</dt><dd>自动化检查；异常由运维负责人处理</dd><dt>动作</dt><dd>比较记录数、异常率、Schema、Gold Set 和查询结果，每项输出<strong>实际值与阈值的对比</strong>；全绿后，切换 Alias 作为一次<strong>独立的交互式审批</strong>送达运维负责人（G4），获批才切；失败则保持旧版本在线。</dd><dt>权限</dt><dd>Alias 修改仅授予发布步骤，不授予 Reader。</dd></dl></div>
+        </article>
+        <article class="step-card">
+          <div class="step-no">4</div><div><h3>同步 OM 与告警</h3><dl><dt>执行者</dt><dd>运维发布 Agent</dd><dt>动作</dt><dd>向 OM 更新数据版本、计数、质量、血缘和运行状态；连续失败、Schema 破坏性变化或权限错误时告警。</dd><dt>权限</dt><dd>OM Writer；只有平台对象或策略变更才升级 Admin。</dd></dl></div>
+        </article>
+      </div>
+      <div class="warning"><strong>调度形态：</strong>将现有 CLI 封装为 Airflow DAG：<code>detect → profile → curate → index → validate → promote → metadata-sync</code>。<strong>DAG 定义是代码</strong>，由架构开发 Agent 编写并走变更请求；<strong>DAG 运行是操作</strong>，由运维发布 Agent 触发。每步幂等、可重试，<code>promote</code> 前不影响线上；回滚只需将 <code>books-current</code> 指回上一版本，<strong>不回退代码、不重建数据</strong>。<br><br><strong>凭证同源风险：</strong>调度器与治理目录属同一套部署，调度操作凭证极易串到平台管理权限上。二者<strong>必须严格分离</strong>，否则“任何 Agent 不持有平台管理凭证”会被从侧门绕过。</div>
+    </section>
+
+    <section class="panel" id="usage">
+      <h2>阶段 5：服务验证 Agent 的只读消费</h2>
+      <div class="builder-grid" style="margin-bottom:14px">
+        <article class="builder-block">
+          <h3>只读消费的上线配置</h3>
+          <ul>
+            <li><strong>平台管理员：</strong>随 G2 变更请求包创建<strong>服务验证 bot</strong>（只读消费角色），不下发任何写权限。</li>
+            <li><strong>架构开发 Agent：</strong>发布 OpenMetadata MCP 与 Corpus Search MCP 的地址、工具清单、查询规则和 Agent 配置模板。</li>
+            <li><strong>服务验证 Agent：</strong>凭证经工具层注入（读不到明文），启动后完成双 MCP 连通性验证与<strong>越权负向验证</strong>。</li>
+          </ul>
+        </article>
+        <article class="builder-block">
+          <h3>Agent 获得的能力</h3>
+          <dl class="version-map">
+            <dt>OM MCP</dt><dd>定义、Glossary、Owner、版本、质量、血缘</dd>
+            <dt>Corpus MCP</dt><dd>书名、作者、ISBN、学科过滤、统计</dd>
+            <dt>禁止能力</dt><dd>元数据写入、索引写入、Alias 修改、任意 DSL</dd>
+          </dl>
+        </article>
+      </div>
+      <div class="steps">
+        <article class="step-card">
+          <div class="step-no">1</div><div><h3>识别查询意图</h3><dl><dt>负责角色</dt><dd>Reader / Agent</dd><dt>动作</dt><dd>区分“定义与治理信息”还是“具体书籍与统计”，保留学科条件中的 AND/OR 意图。</dd><dt>权限</dt><dd>无需写权限。</dd></dl></div>
+        </article>
+        <article class="step-card">
+          <div class="step-no">2</div><div><h3>规范化学科语义</h3><dl><dt>负责角色</dt><dd>Reader / Agent</dd><dt>动作</dt><dd>遇到歧义、别名或同义词时，先调用 OpenMetadata MCP 查询 Glossary、字段定义和 Data Product。</dd><dt>权限</dt><dd>OpenMetadata Reader PAT。</dd></dl></div>
+        </article>
+        <article class="step-card">
+          <div class="step-no">3</div><div><h3>搜索书籍</h3><dl><dt>负责角色</dt><dd>Reader / Agent</dd><dt>动作</dt><dd>调用 Corpus Search MCP 的受控工具查询书名、作者、ISBN、学科与统计；使用游标分页，每次不超过 50 条。</dd><dt>权限</dt><dd>Corpus MCP <code>books:read</code>；底层 OpenSearch 只读。</dd></dl></div>
+        </article>
+        <article class="step-card">
+          <div class="step-no">4</div><div><h3>返回可解释结果</h3><dl><dt>负责角色</dt><dd>Reader / Agent</dd><dt>动作</dt><dd>每条结果包含 identifier、标题、命中学科和命中原因；不向普通用户暴露 documentpath 或 parsed_path。</dd><dt>权限</dt><dd>只读；不得提交任意 OpenSearch DSL。</dd></dl></div>
+        </article>
+      </div>
+      <div class="builder-grid" style="margin-top:14px">
+        <article class="builder-block"><h3>OpenMetadata MCP</h3><p>负责字段定义、Glossary、Data Product、Owner、版本、质量和血缘。它回答“数据是什么、如何理解、由谁负责”。</p></article>
+        <article class="builder-block"><h3>Corpus Search MCP</h3><p>负责逐书记录、identifier、ISBN、作者、学科过滤和语料统计。它回答“有哪些书、哪些书符合条件”。</p></article>
+      </div>
+      <div class="warning"><strong>只读边界：</strong>服务验证 Agent 只持有只读 bot 凭证，不接触平台管理凭证、Writer bot、索引构建或指向切换权限。它同时是权限边界的<strong>活体检验</strong>——任何写尝试都必须失败。本阶段只读，<strong>不设闸门</strong>。</div>
+    </section>
+
+    <section class="panel" id="carrier">
+      <h2>实现载体:一切能力由 Agent 定义承载</h2>
+      <p class="subtitle" style="margin-bottom:14px"><strong>本特性交付的是一个 Agent 定义包，不是一套应用程序。</strong>凡是这些机制表达不了的能力，只有三种下场：退化成提示词里的一句话（弱强制）、落到部署侧配置（不在包内）、或者根本没有载体。<strong>必须逐条认领载体。</strong></p>
+
+      <h3>需求分三层读,不可混为一谈</h3>
+      <div class="version-map" style="grid-template-columns: 200px 1fr">
+        <dt>① Agent 长什么样</dt><dd>定义包本身的构造 · 载体：声明式配置 · 例：四个子 Agent、有无 shell、外部接入、凭证注入</dd>
+        <dt>② Agent 怎么工作</dt><dd>运行时行为与边界 · 载体：策略 + 工具 + skills + prompt · 例：闸门顺序、审批、工作区隔离、交接契约</dd>
+        <dt>③ 产出的管线长什么样</dt><dd><strong>不由本包实现</strong> · 是 Agent 运行时按 Spec 去写的东西 · 例：快照不覆盖、门禁项、回滚、幂等</dd>
+      </div>
+      <div class="warning" style="margin-top:12px"><strong>第 ③ 层是 Agent 的验收标准，不是 Agent 的构建规格。</strong>把它当成“要在 Agent 定义里实现的功能”，是规划本特性最容易犯的错误——它们应当成为 Agent 的 prompt/skill 里给出的开发契约，以及每条管线 Spec 的验收用例。</div>
+
+      <h3 style="margin-top:18px">强制力梯度,选错载体等于没做</h3>
+      <div class="version-map" style="grid-template-columns: 230px 1fr">
+        <dt>策略 + 确定性工具</dt><dd><strong>强</strong> — 工具执行确定性代码；策略读<strong>工具的真实返回值</strong>并落状态，后续操作凭该状态放行</dd>
+        <dt>工具集裁剪</dt><dd><strong>强</strong> — 未授予的工具，模型根本调不到。最强也最省事的一道</dd>
+        <dt>策略（单用）</dt><dd><strong>强</strong> — 每次工具调用/结果无条件求值，模型没有选择权</dd>
+        <dt>Python 函数工具（单用）</dt><dd><strong>中</strong> — 一旦调用即执行确定性代码，<strong>但调不调用由模型决定</strong></dd>
+        <dt>skill 捆绑脚本</dt><dd><strong>弱</strong> — 可列出、可读取，<strong>但没有“执行 skill 脚本”的工具</strong>；要跑得由 Agent 自己经 shell 调</dd>
+        <dt>skill 正文 / prompt</dt><dd><strong>弱</strong> — 模型主动加载才读到，读到也未必遵守；<strong>无强制加载机制</strong></dd>
+      </div>
+
+      <h3 style="margin-top:18px">防谎报的闭环</h3>
+      <p class="subtitle">策略有六个触发点，其中两个是关键：<code>tool_call</code>（派发<strong>前</strong>，可拒绝）与 <code>tool_result</code>（工具返回后、<strong>结果回给模型之前</strong>，能读到真实返回值）。由此可组出闭环：</p>
+      <div class="version-map" style="grid-template-columns: 40px 1fr">
+        <dt>①</dt><dd>Agent 调用确定性工具（如“只读核验”）</dd>
+        <dt>②</dt><dd>策略在 <code>tool_result</code> 上读<strong>工具的真实返回值</strong>，据此写会话标签</dd>
+        <dt>③</dt><dd>后续操作在 <code>tool_call</code> 上被策略检查该标签，不满足即拒绝</dd>
+      </div>
+      <div class="warning" style="margin-top:12px"><strong>关键在于策略读的是工具的真实返回值，而不是模型的自述</strong>——所以模型声称“我已经核验过了”没有用。本特性中三处最该用这个组合：<strong>只读核验</strong>（证明治理变更真的执行到位）、<strong>bot 权限负向自检</strong>（证明只读 bot 真的写不了）、<strong>质量门禁判定</strong>（证明门禁真跑了且真通过）。</div>
+
+      <h3 style="margin-top:18px">一个容易踩的坑</h3>
+      <div class="warning"><strong>三个无 shell 的子 Agent 跑不了任何脚本。</strong>skill 的 <code>scripts/</code> 目录对治理审计、运维发布、服务验证形同虚设——它们没有 shell，读到脚本也执行不了。这三个 Agent 需要的任何确定性逻辑，<strong>只能以 Python 函数工具提供</strong>。只有架构开发 Agent 有 shell，能跑捆绑脚本。</div>
+      <p class="subtitle" style="margin-top:12px">omnigent 的 Agent 定义机制全貌，另见 <code>docs/omnigent-agent-definition.html</code>。</p>
+    </section>
+
+    <section class="panel" id="identity">
+      <h2>身份与凭证:前置条件配置</h2>
+      <p class="subtitle" style="margin-bottom:14px">对外<strong>只有两个前置依赖系统:OpenMetadata 与 GitHub</strong>。OpenMetadata 同时提供<strong>元数据管理</strong>与<strong>检索 MCP</strong>，调度器是它自带的 Airflow；<strong>四个子 Agent 全部访问它</strong>，只是权限不同。管线自己产出的检索服务与索引（本例中的语料检索 MCP、版本化查询副本）是<strong>交付物、不是前置依赖</strong>——启动 Agent 时它们尚不存在。<br><br>这些连接必须在启动 Agent <strong>之前</strong>配好，否则失败会发生在流程中途而不是启动时。v1 以单一环境变量文件承载，由启动命令注入——<strong>运行时自身不解析该文件</strong>。图形化配置另立需求。</p>
+
+      <h3>身份分两层,不可混用</h3>
+      <div class="version-map" style="grid-template-columns: 90px 1fr">
+        <dt>人</dt><dd>使用 <strong>omnigent 自身的用户体系</strong>，与 OpenMetadata 相互独立。v1 不做统一登录。</dd>
+        <dt>Agent</dt><dd>使用 <strong>OpenMetadata bot 账号 + 各自的访问令牌</strong>。绝不继承登录用户的令牌。</dd>
+      </div>
+      <p class="subtitle" style="margin-top:10px">Agent 不继承用户令牌的三个原因：其一，那会让平台管理员一使用系统，Agent 就自动获得管理员权限，G2 闸门当场失效；其二，四个子 Agent 需要<strong>不同</strong>权限，单一用户令牌拆不开；其三，阶段 4 按计划或事件触发，<strong>无人值守时根本没有登录用户</strong>，而会话令牌还会过期。</p>
+      <p class="subtitle" style="margin-top:8px">用 bot 的收益不只是“能用”，而是<strong>权限由 OpenMetadata 自己的角色与策略强制</strong>，不再依赖“我们没给它配写工具”这种自觉。</p>
+
+      <h3 style="margin-top:18px">两种注入路径,按有无 shell 分</h3>
+      <div class="version-map" style="grid-template-columns: 120px 1fr">
+        <dt>工具层注入</dt><dd>凭证配在工具定义上，调用时由运行时附加。<strong>无 shell 的 Agent 只能“使用”，读不到明文</strong>——治理审计、运维发布、服务验证属此类。</dd>
+        <dt>进程环境</dt><dd>Agent 有 shell 即可读取<strong>整个</strong>环境。仅适用于架构开发 Agent，且其环境中<strong>只放</strong>模型访问与代码托管两项。</dd>
+      </div>
+      <div class="warning" style="margin-top:12px"><strong>这是本节的核心约束，而且比表面看起来更强：</strong>工具层注入的凭证值本身也来自进程环境（配置中以变量引用书写，解析时展开），因此<strong>对有 shell 的 Agent，工具层注入同样不构成隔离</strong>——它可以直接读那个环境变量。隔离真正成立的前提是 <strong>Agent 没有读取环境的手段</strong>。<br><br>这直接决定了给架构开发 Agent 哪种 bot：<strong>只能是只读 bot</strong>。它确实需要访问 OpenMetadata（查数据源定义、中间表与落地表的结构与归属），但给它写权限就等于把写凭证暴露给一个能读取整个环境的 Agent。生产环境的目录写入始终归无 shell 的运维发布 Agent。</div>
+
+      <h3 style="margin-top:18px">凭证清单</h3>
+      <div class="version-map" style="grid-template-columns: 210px 1fr">
+        <dt>模型访问凭证</dt><dd>编排者与全部子 Agent · 进程环境</dd>
+        <dt>git 凭证（令牌+用户名）</dt><dd>架构开发 · 进程环境，经凭证助手，<strong>不落盘</strong></dd>
+        <dt>GitHub 令牌</dt><dd>架构开发 · 创建 PR、查状态与合并结果，<strong>与 git 凭证分开配置</strong></dd>
+        <dt>架构开发 bot 令牌</dt><dd>架构开发 · 工具层 · <strong>只读</strong>（数据源、中间表、落地表）</dd>
+        <dt>治理审计 bot 令牌</dt><dd>治理审计 · 工具层 · <strong>只读</strong></dd>
+        <dt>运维发布 bot 令牌</dt><dd>运维发布 · 工具层 · Writer（<strong>不含</strong>域/角色/策略管理）</dd>
+        <dt>Airflow 操作令牌</dt><dd>运维发布 · 工具层</dd>
+        <dt>索引构建令牌</dt><dd>运维发布 · 工具层</dd>
+        <dt>指向切换令牌</dt><dd>运维发布 · 工具层 · 仅在 G4 获批后使用</dd>
+        <dt>服务验证 bot 令牌</dt><dd>服务验证 · 工具层 · 只读消费</dd>
+        <dt>OpenMetadata 管理凭证</dt><dd><strong>仅平台管理员本人 · 不进入 omnigent</strong></dd>
+      </div>
+      <p class="subtitle" style="margin-top:10px">四处刻意的切分：<strong>目录写入 ≠ 平台管理</strong>（前者改元数据，后者改域与策略）；<strong>Airflow 操作 ≠ 平台管理</strong>，即便二者同属一套部署；<strong>索引构建 ≠ 指向切换</strong>，后者才真正影响线上；<strong>git 推送 ≠ 变更请求合并</strong>，后者的权限不应授予任何 Agent。</p>
+
+      <h3 style="margin-top:18px">代码托管:GitHub,不自建</h3>
+      <p class="subtitle">omnigent <strong>不提供 git 托管服务</strong>，本特性也不引入；v1 定死使用 GitHub。omnigent 已内置 git 认证接线——沙箱主机镜像内置<strong>凭证助手</strong>，从环境变量应答凭证请求，<strong>不落盘</strong>、对沙箱内任何用户生效、<strong>同时覆盖启动时克隆与 Agent 后续的拉取推送</strong>；未配置时公共仓库的匿名克隆不受影响。</p>
+      <div class="warning" style="margin-top:12px"><strong>给 Agent 的令牌不授予合并权限：</strong>这样“Agent 不合并变更请求”就从提示词层的约定变成<strong>凭证层的强制</strong>——托管服务直接拒绝，不依赖模型守规矩。</div>
+
+      <h3 style="margin-top:18px">已知缺口:审计链在 v1 是断的</h3>
+      <p class="subtitle">用户体系分离意味着同一个人在 omnigent、OpenMetadata、GitHub 里有<strong>三个身份</strong>；而 v1 又不读取目录的变更历史。两者叠加的后果是：系统无法证明“在 omnigent 里确认 G2 的人”就是“在 OpenMetadata 里执行手册的人”，也无法核实治理变更究竟由谁执行——<strong>核验只能证明“状态对了”，不能证明“是对的人做的”</strong>。</p>
+      <div class="warning" style="margin-top:12px"><strong>这是明知代价、主动接受的取舍</strong>（操作简单、团队规模小时可接受），不是疏漏。两条后续可选的补救，任选其一即可闭合：<strong>读取目录变更历史</strong>让核验报告自动记录实际执行人（成本最低，治理审计 bot 的只读权限已覆盖）；或<strong>统一登录</strong>，从根上让三个身份归一。在补上之前，“谁执行了治理变更”只能靠流程与人工记录约束。</div>
+    </section>
+
+    <footer>数据管线生命周期 Agent · 与 specs/001-data-pipeline-agent/spec.md 保持一致 · 2026-08-16</footer>
+  </main>
+</body>
+</html>
