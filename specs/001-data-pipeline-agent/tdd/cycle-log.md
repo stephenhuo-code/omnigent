@@ -612,3 +612,62 @@ E   assert [] != []
 - **连带修复**:与 Cycle 51 同因,U47–U50 未传 `contract` 而转红。
   加入 `_contract_for()` 与 `_run()` 辅助,让默认路径带上与检查项一致的契约。同样是补全夹具。52 passed。
 - **重构**:测试侧夹具重构如上。
+
+## Cycle 54 · U54 · 制品引用含四项
+
+- **测试**:`tests/tools/pipely/test_artifact_ref.py::test_a_reference_pins_code_artifact_thresholds_and_assertions`
+- **红**:`uv run pytest tests/tools/pipely/test_artifact_ref.py -q -p no:randomly` → `KeyError: 'code_tag'`
+- **绿**:返回四项。53 passed。
+- **重构**:无需重构。
+
+## Cycle 55 · U55 · 不得基于分支构建制品引用
+
+- **测试**:`::test_building_a_reference_from_a_branch_is_refused`
+- **红**:`-k from_a_branch` → `Failed: DID NOT RAISE <class 'ValueError'>`
+- **绿**:构建期即拒,**复用 `handoff.check_handoff` 的判据**而非另造一套——
+  可变引用的定义只应有一处,两处会各自漂移。54 passed。
+- **重构**:无需重构。
+
+## Cycle 56 · U56 · 制品引用不可编辑
+
+- **测试**:`::test_an_existing_reference_cannot_be_edited`
+- **红**:`-k cannot_be_edited` → `Failed: DID NOT RAISE <class 'TypeError'>`
+- **绿**:返回 `MappingProxyType`,嵌套字典同样包一层。55 passed。
+- **重构**:无需重构。
+
+## Cycle 57 · U57 · 同输入重复构建结果一致
+
+- **测试**:`::test_building_twice_from_the_same_inputs_gives_the_same_reference`
+- **红**:首跑即绿。**故意变异**:嵌入逐次递增的 `seq` 字段 → `AssertionError: assert {...} == {...}`。恢复后 56 passed。
+- **绿**:实现未变。
+- **重构**:无需重构。
+
+## Cycle 58 · U58 · 全部事实原样进入目录
+
+- **测试**:`tests/tools/pipely/test_sync_catalog.py::test_every_fact_reaches_the_catalog_unchanged`
+- **红**:`uv run pytest tests/tools/pipely/test_sync_catalog.py -q -p no:randomly` → `KeyError: 'orders_daily'`
+- **绿**:调用注入的 catalog 写入。57 passed。
+- **重构**:无需重构。
+
+## Cycle 59 · U59 · 目录不可达与调度器不可达须分开报 —— **部分完成**
+
+- **测试**:`::test_a_catalog_outage_is_reported_apart_from_a_scheduler_outage`
+- **红**:`-k catalog_outage` → `ConnectionError: catalog refused the connection`(异常直接冒出)
+- **绿**:捕获并返回 `unreachable: "catalog"`。58 passed。
+- **限度**:目录侧已钉住;**调度器侧尚无对称测试**,因为当前 `sync` 还不承担调度调用。
+  U59 记为 DONE(部分),待 `sync` 扩到调度器时补上对称的一条。不假装两侧都已覆盖。
+
+## Cycle 60 · U60 · 同步幂等
+
+- **测试**:`::test_syncing_the_same_release_twice_leaves_one_record`
+- **红**:`-k twice_leaves_one` → `AssertionError: assert 2 == 1`
+- **测试替身的更正(须记录)**:红出现后我意识到问题在**替身**——它名叫 `upsert` 却实现成 append,
+  没有如实表现协作者。但若只把替身改成覆盖,这条测试就退化成"测我自己的替身"。
+  改为:替身按**键**存储(这才是 upsert 的语义),幂等性因而落在**工具给出的键是否稳定**上,
+  那是工具自身的行为,正是本条要测的。
+- **绿**:键由 `pipeline` 与 `facts["version"]` 导出,不含任何逐次变化的成分。59 passed。
+- **变异确认**:第一次变异用 `id(facts)`,**无效**——两次调用传的是同一个 `FACTS` 对象,`id` 相同。
+  改用模块级计数器 `_N` 后 → `AssertionError: assert 2 == 1`,变异有效。
+- **清理**:恢复变异时发现备份文件不存在(那条 `cp` 在被隔离守卫拦下的复合命令里没执行到),
+  已手工撤回两处改动,并 `grep -n "MUTANT"` 全量扫描 pipely 的源码与测试,确认**无残留**。
+- **重构**:无需重构。

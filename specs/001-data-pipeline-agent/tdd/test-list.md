@@ -167,18 +167,18 @@ profile 记录的 `acceptance` 是 `uv run pytest tests/e2e_ui`——Playwright 
 
 | id  | behavior | traces | kind | state | test |
 | --- | --- | --- | --- | --- | --- |
-| U54 | 产出的制品引用含代码标签、制品标签、冻结阈值与冻结断言四项 | FR-101 | example | PENDING | |
-| U55 | 产出的制品引用不含分支名、工作区路径或任何可写源码位置 | FR-023 | example | PENDING | |
-| U56 | 对已存在的制品引用发起修改时拒绝(不可编辑) | FR-102 | example | PENDING | |
-| U57 | 同一代码标签重复产出时结果一致(幂等) | FR-102 | example | PENDING | |
+| U54 | 产出的制品引用含代码标签、制品标签、冻结阈值与冻结断言四项 | FR-101 | example | DONE | `tests/tools/pipely/test_artifact_ref.py::test_a_reference_pins_code_artifact_thresholds_and_assertions` |
+| U55 | 产出的制品引用不含分支名、工作区路径或任何可写源码位置 | FR-023 | example | DONE | `tests/tools/pipely/test_artifact_ref.py::test_building_a_reference_from_a_branch_is_refused`(判据复用 `handoff.check_handoff`,只有一处定义) |
+| U56 | 对已存在的制品引用发起修改时拒绝(不可编辑) | FR-102 | example | DONE | `tests/tools/pipely/test_artifact_ref.py::test_an_existing_reference_cannot_be_edited` |
+| U57 | 同一代码标签重复产出时结果一致(幂等) | FR-102 | example | DONE | `tests/tools/pipely/test_artifact_ref.py::test_building_twice_from_the_same_inputs_gives_the_same_reference` |
 
 ### `omnigent/tools/pipely/sync_catalog.py`
 
 | id  | behavior | traces | kind | state | test |
 | --- | --- | --- | --- | --- | --- |
-| U58 | 同步后目录中的版本、计数、质量、血缘、运行状态与输入一致 | FR-031 | example | PENDING | |
-| U59 | 同步失败时明确区分"目录不可达"与"调度器不可达" | FR-059 | example | PENDING | |
-| U60 | 同步是幂等的:重复同步不产生重复记录 | FR-033 | example | PENDING | |
+| U58 | 同步后目录中的版本、计数、质量、血缘、运行状态与输入一致 | FR-031 | example | DONE | `tests/tools/pipely/test_sync_catalog.py::test_every_fact_reaches_the_catalog_unchanged` |
+| U59 | 同步失败时明确区分"目录不可达"与"调度器不可达" | FR-059 | example | DONE(**部分**) | `tests/tools/pipely/test_sync_catalog.py::test_a_catalog_outage_is_reported_apart_from_a_scheduler_outage` —— 目录侧已钉住;调度器侧待 `sync` 承担调度调用时补一条对称测试 |
+| U60 | 同步是幂等的:重复同步不产生重复记录 | FR-033 | example | DONE | `tests/tools/pipely/test_sync_catalog.py::test_syncing_the_same_release_twice_leaves_one_record` |
 
 ### `examples/pipely/**`(声明式配置断言)
 
