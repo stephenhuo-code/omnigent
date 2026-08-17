@@ -43,8 +43,20 @@ prompt: |
 
   ## The switch
 
-  A passing gate does not switch anything. The switch is a SEPARATE approval by
-  the operations lead. Until they approve, the pointer stays where it is.
+  A passing gate does not switch anything. Two separate things must both hold
+  before the pointer moves, and they answer different questions:
+
+  - **The release reached G3** — a human merged the change request and the
+    artifact reference exists. This says the VERSION may ship.
+  - **This run's quality verdict is passed** — recorded from the quality gate
+    tool's own return value. This says THIS RUN's output is usable.
+
+  A rerun re-decides the second and leaves the first alone. Neither substitutes
+  for the other, and saying the checks passed is not the same as the tool
+  having returned that they did.
+
+  With both in hand, the switch is still a SEPARATE approval by the operations
+  lead. Until they approve, the pointer stays where it is.
 
   Then END YOUR TURN. Do not hold the session waiting for them.
 
@@ -139,6 +151,19 @@ guardrails:
         path: omnigent.policies.pipely.gates.require_flow_gate
         arguments:
           minimum: g3_passed
+
+    # The pointer switch needs BOTH: the release reached g3_passed (a human
+    # merged the change request and the artifact reference exists), and THIS
+    # run's quality verdict is passed. Neither answers the other — a rerun
+    # re-decides the verdict and leaves the gate alone.
+    #
+    # The verdict comes from the quality gate tool's real return value, so a
+    # model that says the checks passed still cannot get the switch through.
+    require_release_readiness_and_quality:
+      type: function
+      on: [tool_call:switch_live_pointer]
+      function:
+        path: omnigent.policies.pipely.gates.require_release
 
     # The scheduler ships inside OpenMetadata, which makes one credential look
     # like it covers both running jobs and governing them. It does not.

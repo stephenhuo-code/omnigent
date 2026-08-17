@@ -175,11 +175,18 @@ guardrails:
           tool: verify_governance
           grants: g2_passed
 
-    advance_g3_on_quality_gate:
+    # ── This run's quality verdict — NOT a gate ──────────────────
+    # The gate says whether this VERSION may ship; this says whether THIS RUN's
+    # output is usable. Rerun the pipeline and the second is re-decided while
+    # the first does not move, so they cannot share a label. Wiring the quality
+    # gate to advance g3 would also replace "a human merged the change request"
+    # with an automatic verdict, deleting one of the four human checkpoints.
+    record_quality_verdict:
       type: function
       on: [tool_result:quality_gate]
       function:
         path: omnigent.policies.pipely.gates.advance_on_result
         arguments:
           tool: quality_gate
-          grants: g3_passed
+          grants: passed
+          label: pipely.quality

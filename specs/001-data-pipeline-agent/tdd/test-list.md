@@ -47,7 +47,7 @@ profile 记录的 `acceptance` 是 `uv run pytest tests/e2e_ui`——Playwright 
 | A23 | 需要调度编排时,作业定义作为代码纳入同一变更请求一同评审 | US3-2, FR-022 | example | BLOCKED | 需**真实外部系统**(OpenMetadata / GitHub / Airflow),本仓库无可用实例 |
 | A24 | 子 Agent 写入越出工作区被拒,其他在途任务不受影响 | US3-3, FR-042 | example | BLOCKED | 需**真实外部系统**(OpenMetadata / GitHub / Airflow),本仓库无可用实例 |
 | A25 | 推送并开变更请求作为交互式审批送达开发负责人,获批后才执行 | US3-4, FR-044 | example | BLOCKED | 需**真实外部系统**(OpenMetadata / GitHub / Airflow),本仓库无可用实例 |
-| A26 | 测试全绿且变更请求已开时,停在 G3 等人确认,不自行合并 | US3-5, FR-045 | example | BLOCKED | **闸门语义冲突,待人决策**:`data-model.md` 规定 `g3_passed` 由"变更请求已合并、制品引用已产出"推进,而 `examples/pipely/config.yaml` 把它接成了 `tool_result:quality_gate`。质量门禁属阶段 4,该守的是 G4 的切换审批。改哪一边是 spec 级决定,循环不自行改写(见 cycle-log 的冲突条目) |
+| A26 | 测试全绿且变更请求已开时,停在 G3 等人确认,不自行合并 | US3-5, FR-045 | example | DONE | `tests/policies/pipely/test_agent_declarations.py::test_nothing_an_agent_does_can_advance_the_release_gate` —— 扫描包内**全部**已声明策略,任何一条授予 `g3_passed` 都会红。冲突已按方案 (a) 裁决(见 cycle-log) |
 | A27 | 人合并打标签后,交接物为不可变制品引用,不含任何可写源码位置 | US3-6, FR-023 | example | DONE | `tests/tools/pipely/test_artifact_ref.py::test_building_a_reference_from_a_branch_is_refused` + `::test_an_existing_reference_cannot_be_edited` + `::test_a_reference_pins_code_artifact_thresholds_and_assertions` |
 | A28 | 变更架构或范围时,先改 Spec 再改实现,Spec 未更新则拒绝改实现 | US3-7, FR-024 | example | BLOCKED | 需**运行中的 Agent + LLM** —— 该行为判定的是模型产出/追问的内容,策略与工具层证不了 |
 | A29 | 私有仓库的克隆、拉取、推送三个动作全部认证成功,且磁盘不留凭证文件 | US3-8, FR-068, FR-069 | example | BLOCKED | 需**真实外部系统**(OpenMetadata / GitHub / Airflow),本仓库无可用实例 |
@@ -55,7 +55,7 @@ profile 记录的 `acceptance` 是 `uv run pytest tests/e2e_ui`——Playwright 
 | A31 | 未配置 git 凭证时,公共仓库匿名克隆正常工作 | US3-10, FR-068 | example | BLOCKED | 需**真实外部系统**(OpenMetadata / GitHub / Airflow),本仓库无可用实例 |
 | A32 | 架构开发 Agent 能从目录读到数据源与落地表的结构与归属,写入正式资产被拒 | US3-11, FR-081, FR-103 | example | BLOCKED | 需**真实外部系统**(OpenMetadata / GitHub / Airflow),本仓库无可用实例 |
 | A33 | 按制品引用执行管线时,新快照以新版本标识存放,旧快照与旧副本未被改动 | US4-1, FR-026 | example | BLOCKED | 需**真实外部系统**(OpenMetadata / GitHub / Airflow),本仓库无可用实例 |
-| A34 | 门禁任一项未达阈值时,线上指向不切换,旧版本继续服务,失败项及实际值被报告 | US4-2, FR-028 | example | DONE | `tests/policies/pipely/test_flow_acceptance.py::test_a_failing_quality_check_leaves_the_live_pointer_where_it_is` / `::test_a_passing_quality_check_lets_the_switch_be_requested` —— **本特性第一条端到端链路**:工具 → 策略 → 标签 → 下一次调用。⚠️ 其中具体授予值(`quality_gate` → `g3_passed`)与 data-model 冲突,随 A26 的裁决可能改动;链路本身的结论不受影响 |
+| A34 | 门禁任一项未达阈值时,线上指向不切换,旧版本继续服务,失败项及实际值被报告 | US4-2, FR-028 | example | DONE | `tests/policies/pipely/test_flow_acceptance.py::test_a_failing_quality_check_leaves_the_live_pointer_where_it_is` / `::test_a_passing_quality_check_lets_the_switch_be_requested` —— **本特性第一条端到端链路**:工具 → 策略 → 标签 → 下一次调用。链路已按裁决重接:门禁结果写 `pipely.quality`(非闸门),切换须同时满足 `pipely.gate ≥ g3_passed` 与 `pipely.quality = passed` |
 | A35 | 门禁全部通过时,切换作为独立交互式审批送达运维负责人,获批前指向不变 | US4-3, FR-029 | example | BLOCKED | 需**真实外部系统**(OpenMetadata / GitHub / Airflow),本仓库无可用实例 |
 | A36 | 回滚时线上指向指回上一副本且数据可查,不重建数据、不回退代码 | US4-4, FR-030 | example | BLOCKED | 需**真实外部系统**(OpenMetadata / GitHub / Airflow),本仓库无可用实例 |
 | A37 | 上线完成后,目录记录的版本、计数、质量、血缘与运行状态与实际部署一致 | US4-5, FR-031 | example | BLOCKED | 需**真实外部系统**(OpenMetadata / GitHub / Airflow),本仓库无可用实例 |

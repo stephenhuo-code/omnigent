@@ -11,6 +11,7 @@ from pathlib import Path
 
 import pytest
 
+from omnigent.policies.pipely.gates import READY_GATE
 from omnigent.policies.pipely.identity import FORBIDDEN_ENV_NAMES, WRITE_VERBS
 from omnigent.spec.parser import parse
 from omnigent.spec.types import AgentSpec
@@ -133,6 +134,24 @@ def test_no_agent_is_handed_a_platform_admin_credential(spec: AgentSpec) -> None
     for value in everywhere:
         for forbidden in FORBIDDEN_ENV_NAMES:
             assert forbidden not in value, f"{forbidden} reached a tool config"
+
+
+def test_nothing_an_agent_does_can_advance_the_release_gate(spec: AgentSpec) -> None:
+    """G3 is a human's decision — they merge the change request — so no policy
+    in this package may grant it. If one did, the flow would sail past the
+    checkpoint that exists to put a person in front of the merge.
+
+    Written as a scan of every declared policy rather than of the two I happen
+    to remember: a grant added later is exactly what this must catch.
+    """
+    granted: list[str] = []
+    for agent in [spec, *spec.sub_agents]:
+        for policy in agent.guardrails.policies or []:
+            arguments = getattr(getattr(policy, "function", None), "arguments", None) or {}
+            if arguments.get("grants") == READY_GATE:
+                granted.append(f"{agent.name}/{policy.name}")
+
+    assert granted == [], f"these would advance {READY_GATE} without a human: {granted}"
 
 
 def _env_example_names() -> set[str]:

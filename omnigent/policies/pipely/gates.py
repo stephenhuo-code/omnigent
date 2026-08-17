@@ -41,6 +41,14 @@ KIND_OPERATION = "operation"
 #: The gate an operation flow is judged on, whatever the caller asked for.
 RELEASE_GATE = "g4_passed"
 
+#: Where the phase-4 quality verdict is recorded. NOT a gate: it says whether
+#: this RUN is usable, while the gate says whether this VERSION may ship.
+QUALITY_LABEL = "pipely.quality"
+QUALITY_PASSED = "passed"
+
+#: The gate a release must have reached before the pointer may move.
+READY_GATE = "g3_passed"
+
 
 def bind_flow() -> Callable[[_Json, _Json], _Json]:
     """Factory: pin the session to one pipeline flow instance.
@@ -135,14 +143,21 @@ def _verdict(data: Any) -> _Json | None:
     return inner if isinstance(inner, dict) else data
 
 
-def advance_on_result(*, tool: str, grants: str) -> Callable[[_Json, _Json], _Json]:
-    """Factory: move the gate forward on *tool*'s real return value.
+def advance_on_result(
+    *,
+    tool: str,
+    grants: str,
+    label: str = GATE_LABEL,
+) -> Callable[[_Json, _Json], _Json]:
+    """Factory: record *tool*'s real return value as session state.
 
     Bound to the ``tool_result`` phase, so the decision is made from what the
     tool actually returned rather than from anything the model asserts.
 
-    :param tool: The tool whose result can move the gate.
-    :param grants: The gate a passing result grants.
+    :param tool: The tool whose result is read.
+    :param grants: The value a passing result records.
+    :param label: Where to record it. Defaults to the phase gate; the quality
+        verdict is recorded elsewhere because it is not a gate.
     :returns: An evaluator ``fn(event, config)`` returning a V0 decision.
     """
 
@@ -170,10 +185,43 @@ def advance_on_result(*, tool: str, grants: str) -> Callable[[_Json, _Json], _Js
                 "reason": f"{tool} returned no 'passed' verdict.",
             }
         labels = event.get("context", {}).get("labels") or {}
-        # A ratchet: re-running an earlier check must not undo later progress.
-        moves_forward = _rank(grants) > _rank(labels.get(GATE_LABEL))
+        # The gate is a ratchet: re-running an earlier check must not undo later
+        # progress. A non-gate verdict is NOT — the quality result says whether
+        # THIS run is usable, so a rerun has to be free to re-decide it.
+        moves_forward = label != GATE_LABEL or _rank(grants) > _rank(labels.get(GATE_LABEL))
         if result["passed"] is True and moves_forward:
-            return {"result": "ALLOW", "set_labels": {GATE_LABEL: grants}}
+            return {"result": "ALLOW", "set_labels": {label: grants}}
+        return {"result": "ALLOW"}
+
+    return _evaluate
+
+
+def require_release() -> Callable[[_Json, _Json], _Json]:
+    """Factory: refuse the pointer switch unless both conditions hold.
+
+    The gate says this VERSION may ship; the quality verdict says THIS RUN's
+    output is usable. Neither answers the other, so both are required.
+
+    :returns: An evaluator ``fn(event, config)`` returning a V0 decision.
+    """
+
+    def _evaluate(event: _Json, config: _Json) -> _Json:  # noqa: ARG001
+        """Judge a switch call against release readiness and this run's quality.
+
+        :param event: V0 ``tool_call`` event.
+        :param config: Runtime config dict (unused).
+        :returns: ALLOW / DENY decision dict.
+        """
+        labels = event.get("context", {}).get("labels") or {}
+        reached = labels.get(GATE_LABEL)
+        quality = labels.get(QUALITY_LABEL)
+        unmet = []
+        if _rank(reached) < _rank(READY_GATE):
+            unmet.append(f"the release is at gate {reached or 'none'}, not {READY_GATE}")
+        if quality != QUALITY_PASSED:
+            unmet.append(f"this run's quality verdict is {quality or 'unrecorded'}")
+        if unmet:
+            return {"result": "DENY", "reason": f"Cannot switch: {'; and '.join(unmet)}."}
         return {"result": "ALLOW"}
 
     return _evaluate

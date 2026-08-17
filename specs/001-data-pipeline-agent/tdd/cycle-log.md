@@ -871,3 +871,45 @@ E   assert [] != []
 已在测试清单的 A34 行与本条目中标明,不留隐性错误。
 
 **A26 记为 BLOCKED**,原因即本冲突,而非"还没轮到"。
+
+## 裁决 · 闸门语义冲突按方案 (a) 解决 · 新增 `pipely.quality` 标签族
+
+用户选择:**质量门禁的结论单列一个标签族,不推进阶段闸门**。
+
+**契约先改,代码后跟**——测试要有可追溯的依据:
+- `data-model.md` 新增 `### pipely.quality` 一节,并在 `pipely.gate` 下加"质量门禁不是闸门"的说明。
+- `spec.md` 新增 **FR-107**:门禁结论独立记录、不推进闸门;切换须同时满足两项;只由工具真实返回值写入。
+
+### Cycle 80 · U71 · 推进策略可写入指定标签
+
+- **测试**:`tests/policies/pipely/test_gate_advance.py::test_a_verdict_can_be_recorded_somewhere_other_than_the_gate`
+- **红**:首跑 `TypeError: unexpected keyword argument 'label'`,**不是有效红**;
+  加入接受 `label` 但仍写闸门的最小声明后 → `KeyError: 'set_labels'`
+- **绿**:`advance_on_result` 增加 `label` 参数(默认仍为闸门)。
+  **棘轮只对闸门成立**——非闸门的结论重跑时必须能重判,否则一次失败会永久钉死这条管线。90 passed。
+
+### Cycle 81 · U72 · 切换须同时满足发布就绪与本次门禁通过
+
+- **测试**:`tests/policies/pipely/test_gates.py::test_the_switch_needs_both_release_readiness_and_this_runs_quality`
+- **红**:加桩后 → `AssertionError: assert 'ALLOW' == 'DENY'`
+- **绿**:新增 `require_release()`,两项都不满足时把**两条原因都列出来**,不是只报先撞上的那条。
+  三种组合同测(就绪但门禁失败 / 门禁过但未就绪 / 两者皆备),因为任一单侧测试都分辨不出"只看一项"的实现。91 passed。
+
+### 重新接线
+
+| 位置 | 改动 |
+| --- | --- |
+| 编排者 `config.yaml` | `advance_g3_on_quality_gate` → `record_quality_verdict`,写 `pipely.quality` |
+| operations `config.yaml` | 新增 `require_release_readiness_and_quality` 挂在 `tool_call:switch_live_pointer` |
+| operations prompt | 改写"切换"一节:两项条件分别回答不同问题,重跑只重判其一 |
+| A34 的链路测试 | 按新语义重写:门禁结果不再动闸门,断言 `pipely.quality` 与闸门**都**符合预期 |
+
+### Cycle 82 · A26 · 停在 G3 等人确认
+
+- **测试**:`tests/policies/pipely/test_agent_declarations.py::test_nothing_an_agent_does_can_advance_the_release_gate`
+- **写法**:扫描包内**全部**已声明策略的 `grants` 参数,而不是检查我记得的那两条。
+  日后新增一条授予 `g3_passed` 的策略,正是这条测试该抓的。
+- **红**:首跑即绿。**故意变异**:把 `grants: passed` 改回 `grants: g3_passed`(即恢复错误接线)
+  → `AssertionError: these would advance g3_passed without a human: ['pipely/record_quality_verdict']`。
+  恢复后 92 passed。
+- **绿**:实现未变。这一条现在守着这次裁决的结果:**谁把它改回去,谁立刻红,并且被指名**。

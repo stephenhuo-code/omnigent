@@ -26,7 +26,7 @@ import pytest
 
 from omnigent.entities import ConversationItem, PagedList
 from omnigent.policies.function import resolve_function_policy
-from omnigent.policies.pipely.gates import GATE_LABEL
+from omnigent.policies.pipely.gates import GATE_LABEL, QUALITY_LABEL
 from omnigent.policies.pipely.handoff import check_deployment_scope
 from omnigent.policies.pipely.preflight import assess
 from omnigent.runtime.policies.engine import PolicyEngine
@@ -371,33 +371,39 @@ def test_release_stays_inside_what_the_artifact_was_verified_to_contain() -> Non
 
 
 def _release_engine() -> PolicyEngine:
-    """Build an engine carrying BOTH the G3 advance and the G3 gate.
+    """Build an engine carrying the quality recorder AND the switch guard.
 
     Two policies on one engine is what the runtime actually has: the result of
-    one call writes the label that the next call is judged against.
+    one call writes the state the next call is judged against. The session
+    starts already at g3_passed — a human merged the change request — because
+    that is the state phase 4 begins in.
     """
-    advance = FunctionPolicySpec(
-        name="advance_g3_on_quality_gate",
+    record = FunctionPolicySpec(
+        name="record_quality_verdict",
         on=None,
         function=FunctionRef(
             path="omnigent.policies.pipely.gates.advance_on_result",
-            arguments={"tool": "quality_gate", "grants": "g3_passed"},
+            arguments={
+                "tool": "quality_gate",
+                "grants": "passed",
+                "label": "pipely.quality",
+            },
         ),
     )
-    gate = FunctionPolicySpec(
-        name="require_release_gate",
+    guard = FunctionPolicySpec(
+        name="require_release_readiness_and_quality",
         on=None,
         function=FunctionRef(
-            path="omnigent.policies.pipely.gates.require_gate",
-            arguments={"minimum": "g3_passed"},
+            path="omnigent.policies.pipely.gates.require_release",
+            arguments={},
         ),
     )
     return PolicyEngine(
-        policies=[resolve_function_policy(advance), resolve_function_policy(gate)],
+        policies=[resolve_function_policy(record), resolve_function_policy(guard)],
         label_defs={},
         ask_timeout=30,
         conversation_id=CONV_ID,
-        initial_labels={},
+        initial_labels={GATE_LABEL: "g3_passed"},
         conversation_store=_Store(),  # type: ignore[arg-type]
     )
 
@@ -430,7 +436,8 @@ async def test_a_failing_quality_check_leaves_the_live_pointer_where_it_is() -> 
     switch = await engine.evaluate(_tool_call_ctx("switch_live_pointer"))
 
     assert report["passed"] is False
-    assert engine.labels.get(GATE_LABEL) is None
+    assert engine.labels.get(QUALITY_LABEL) is None
+    assert engine.labels.get(GATE_LABEL) == "g3_passed", "the gate must not move either way"
     assert switch.action.value == "deny"
 
 
@@ -447,5 +454,6 @@ async def test_a_passing_quality_check_lets_the_switch_be_requested() -> None:
     switch = await engine.evaluate(_tool_call_ctx("switch_live_pointer"))
 
     assert report["passed"] is True
-    assert engine.labels.get(GATE_LABEL) == "g3_passed"
+    assert engine.labels.get(QUALITY_LABEL) == "passed"
+    assert engine.labels.get(GATE_LABEL) == "g3_passed", "the verdict is not a gate advance"
     assert switch.action.value == "allow"

@@ -11,6 +11,8 @@ from omnigent.policies.pipely.gates import GATE_LABEL, advance_on_result
 G1 = "g1_passed"
 G2 = "g2_passed"
 G3 = "g3_passed"
+QUALITY_LABEL = "pipely.quality"
+QUALITY_PASSED = "passed"
 
 
 def _tool_result(payload: object, *, reached: str = G1) -> dict[str, object]:
@@ -65,6 +67,21 @@ def test_a_result_with_no_verdict_field_is_flagged_rather_than_ignored() -> None
 
     assert "set_labels" not in decision
     assert decision["malformed"] is True
+
+
+def test_a_verdict_can_be_recorded_somewhere_other_than_the_gate() -> None:
+    """The quality gate's verdict is not a gate: it says whether THIS run's
+    output is usable, while the gate says whether this VERSION may ship. Rerun
+    the pipeline and the first is re-decided while the second does not move,
+    so they cannot share a label.
+    """
+    decision = advance_on_result(
+        tool="quality_gate",
+        grants=QUALITY_PASSED,
+        label=QUALITY_LABEL,
+    )(_tool_result({"passed": True}), {})
+
+    assert decision["set_labels"] == {QUALITY_LABEL: QUALITY_PASSED}
 
 
 def test_a_lower_gates_result_does_not_pull_the_session_back() -> None:

@@ -5,7 +5,12 @@ threshold: a scale tested on one side only pins nothing, because "at the gate"
 and "past the gate" pass the same single test.
 """
 
-from omnigent.policies.pipely.gates import GATE_LABEL, require_gate
+from omnigent.policies.pipely.gates import (
+    GATE_LABEL,
+    QUALITY_LABEL,
+    require_gate,
+    require_release,
+)
 
 G1 = "g1_passed"
 G2 = "g2_passed"
@@ -56,3 +61,35 @@ def test_a_denial_names_both_where_the_session_is_and_where_it_must_be() -> None
 
     assert G1 in decision["reason"]
     assert G3 in decision["reason"]
+
+
+def _switch_call(gate: str | None, quality: str | None) -> dict[str, object]:
+    """Build a tool call for the pointer switch at *gate* with *quality*."""
+    labels: dict[str, str] = {}
+    if gate is not None:
+        labels[GATE_LABEL] = gate
+    if quality is not None:
+        labels[QUALITY_LABEL] = quality
+    return {
+        "type": "tool_call",
+        "data": {"name": "switch_live_pointer", "arguments": {}},
+        "context": {"labels": labels},
+    }
+
+
+def test_the_switch_needs_both_release_readiness_and_this_runs_quality() -> None:
+    """Two different questions, and passing one does not answer the other.
+
+    The gate says this VERSION may ship; the quality verdict says THIS RUN's
+    output is usable. A rerun re-decides the second and leaves the first alone,
+    so neither alone may open the switch.
+    """
+    evaluate = require_release()
+
+    ready_but_bad = evaluate(_switch_call(gate=G3, quality="failed"), {})
+    good_but_not_ready = evaluate(_switch_call(gate=G2, quality="passed"), {})
+    both = evaluate(_switch_call(gate=G3, quality="passed"), {})
+
+    assert ready_but_bad["result"] == "DENY"
+    assert good_but_not_ready["result"] == "DENY"
+    assert both["result"] == "ALLOW"
