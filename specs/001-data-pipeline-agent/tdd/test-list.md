@@ -22,53 +22,53 @@ profile 记录的 `acceptance` 是 `uv run pytest tests/e2e_ui`——Playwright 
 
 | id  | behavior | traces | kind | state | test |
 | --- | --- | --- | --- | --- | --- |
-| A1 | 给定需求与可读数据源样本,产出的统一 Spec 九类条目全部非空 | US1-1, FR-007 | example | PENDING | |
-| A2 | 需求缺更新频率与数据规模时,产出 Spec 之前先提问而非填默认值 | US1-2, FR-008 | example | PENDING | |
-| A3 | Spec 要求平台不具备的能力时,评审结论指出不可行及原因,状态不进入"可实施" | US1-3, FR-009 | example | PENDING | |
-| A4 | 需求评审后被修改时,修订同一份 Spec 并保留变更记录,不另起矛盾文档 | US1-4 | example | PENDING | |
+| A1 | 给定需求与可读数据源样本,产出的统一 Spec 九类条目全部非空 | US1-1, FR-007 | example | BLOCKED | 需**运行中的 Agent + LLM** —— 该行为判定的是模型产出/追问的内容,策略与工具层证不了 |
+| A2 | 需求缺更新频率与数据规模时,产出 Spec 之前先提问而非填默认值 | US1-2, FR-008 | example | BLOCKED | 需**运行中的 Agent + LLM** —— 该行为判定的是模型产出/追问的内容,策略与工具层证不了 |
+| A3 | Spec 要求平台不具备的能力时,评审结论指出不可行及原因,状态不进入"可实施" | US1-3, FR-009 | example | BLOCKED | 需**运行中的 Agent + LLM** —— 该行为判定的是模型产出/追问的内容,策略与工具层证不了 |
+| A4 | 需求评审后被修改时,修订同一份 Spec 并保留变更记录,不另起矛盾文档 | US1-4 | example | BLOCKED | 需**运行中的 Agent + LLM** —— 该行为判定的是模型产出/追问的内容,策略与工具层证不了 |
 | A5 | Spec 齐备且评审可实施时,停在 G1 并出示权限申请清单,确认前不生成变更请求包 | US1-5, FR-047 | example | DONE(**部分**) | `tests/policies/pipely/test_flow_acceptance.py::test_no_change_request_package_before_the_spec_is_frozen` —— G1 闸门的拦截与放行已在真实引擎上钉住;"出示权限申请清单"属产出内容,需 LLM 运行 |
 | A6 | 前置配置缺凭证时,派发任何任务之前一次性列出全部缺失项并停止 | US1-6, FR-060 | example | DONE | `tests/policies/pipely/test_flow_acceptance.py::test_no_task_is_dispatched_until_preconditions_are_verified` / `::test_a_partly_configured_deployment_is_told_every_gap_at_once` |
-| A7 | 架构开发 Agent 读自身进程环境时,只能读到模型访问与代码托管两项凭证 | US1-7, FR-062 | example | PENDING | |
-| A8 | 会话未共享给平台管理员时,派发前报出"闸门待办无法送达"并指明缺失的共享对象 | US1-8, FR-084 | example | PENDING | |
-| A9 | 已共享但未委派审批权时,报出该项并与"未共享"区分开 | US1-9, FR-085 | example | PENDING | |
-| A10 | 引导用只读 bot 未创建时,明确报出缺失并停止,不尝试自行创建 | US1-10, FR-076 | example | PENDING | |
-| A11 | 治理审计 bot 被误授写权限时,负向探测未被拒即判自检失败并指明多出的权限 | US1-11, FR-074 | example | PENDING | |
-| A12 | 全部 bot 权限正确时,只读 bot 写探测被拒、应有权限可用,自检通过且未改动目录 | US1-12, FR-074 | example | PENDING | |
-| A13 | 给定已冻结 Spec,变更请求包三件产物齐备,手册每步含五要素 | US2-1, FR-012, FR-013 | example | PENDING | |
-| A14 | 目录中存在命名冲突时,手册基于实时状态标出冲突并给出处置选项 | US2-2, FR-014 | example | PENDING | |
-| A15 | 变更请求包提交后,待办出现在平台管理员本人的收件箱中(会话非其发起) | US2-3, FR-083 | example | PENDING | |
+| A7 | 架构开发 Agent 读自身进程环境时,只能读到模型访问与代码托管两项凭证 | US1-7, FR-062 | example | BLOCKED | 需**运行中的 Agent + LLM** —— 该行为判定的是模型产出/追问的内容,策略与工具层证不了 |
+| A8 | 会话未共享给平台管理员时,派发前报出"闸门待办无法送达"并指明缺失的共享对象 | US1-8, FR-084 | example | DONE(**部分**) | `tests/policies/pipely/test_preflight.py::test_not_shared_and_no_approve_grant_are_distinct_failures` —— 检出并与 A9 区分已钉住;"指明缺失的共享对象"需知道应共享给谁,属部署配置,策略层无此输入 |
+| A9 | 已共享但未委派审批权时,报出该项并与"未共享"区分开 | US1-9, FR-085 | example | DONE | `tests/policies/pipely/test_preflight.py::test_not_shared_and_no_approve_grant_are_distinct_failures` —— 该测试的全部意义就是这两种漏配产出不同标识 |
+| A10 | 引导用只读 bot 未创建时,明确报出缺失并停止,不尝试自行创建 | US1-10, FR-076 | example | DONE | `tests/policies/pipely/test_preflight.py::test_absent_bootstrap_bot_is_remediated_by_hand_not_by_creating_it` —— 报出缺失且给出 `provision_by_hand`,不含任何自建动作 |
+| A11 | 治理审计 bot 被误授写权限时,负向探测未被拒即判自检失败并指明多出的权限 | US1-11, FR-074 | example | DONE | `tests/tools/pipely/test_bot_selfcheck.py::test_readonly_bot_write_probe_not_refused_fails_the_selfcheck` + `::test_permissions_wider_than_the_role_name_the_extra_ones`(多出项具名) |
+| A12 | 全部 bot 权限正确时,只读 bot 写探测被拒、应有权限可用,自检通过且未改动目录 | US1-12, FR-074 | example | DONE(**部分**) | `tests/tools/pipely/test_bot_selfcheck.py::test_readonly_bot_write_probe_refused_passes_the_selfcheck` + `::test_permissions_matching_the_role_exactly_pass`;"未改动目录"随 U44 阻塞于真实目录 |
+| A13 | 给定已冻结 Spec,变更请求包三件产物齐备,手册每步含五要素 | US2-1, FR-012, FR-013 | example | BLOCKED | 需**运行中的 Agent + LLM** —— 该行为判定的是模型产出/追问的内容,策略与工具层证不了 |
+| A14 | 目录中存在命名冲突时,手册基于实时状态标出冲突并给出处置选项 | US2-2, FR-014 | example | BLOCKED | 需**运行中的 Agent + LLM** —— 该行为判定的是模型产出/追问的内容,策略与工具层证不了 |
+| A15 | 变更请求包提交后,待办出现在平台管理员本人的收件箱中(会话非其发起) | US2-3, FR-083 | example | BLOCKED | 需**真实审批与收件箱链路**(elicitation → 跨用户投递),需服务端集成套件 |
 | A16 | 管理员在收件箱点确认后,触发只读核验并输出逐条比对结果 | US2-4, FR-017 | example | DONE(**部分**) | `tests/policies/pipely/test_flow_acceptance.py::test_a_fully_met_verification_opens_the_g2_gate` —— 闸门推进侧已在真实引擎上钉住;"收件箱点确认"这一段需真实审批链路,随 A15 |
-| A17 | Spec 要求的带写权限 bot,其创建与授权作为平台级操作写入手册交人执行 | US2-5, FR-077 | example | PENDING | |
+| A17 | Spec 要求的带写权限 bot,其创建与授权作为平台级操作写入手册交人执行 | US2-5, FR-077 | example | BLOCKED | 需**运行中的 Agent + LLM** —— 该行为判定的是模型产出/追问的内容,策略与工具层证不了 |
 | A18 | 核验发现任一断言不满足时,G2 不通过且给出需补做的具体步骤 | US2-6, FR-018 | example | DONE | `tests/policies/pipely/test_flow_acceptance.py::test_an_unmet_governance_assertion_leaves_the_g2_gate_shut`(本轮暴露并修复了闭环对真实运行时不生效的缺陷) |
 | A19 | 治理审计 Agent 的任何写入尝试被拒 | US2-7, FR-011 | example | DONE | `tests/policies/pipely/test_flow_acceptance.py::test_the_governance_agent_cannot_write_through_the_real_engine` |
-| A20 | 同一变更请求包重复核验,结果一致且无副作用 | US2-8, FR-019 | example | PENDING | |
-| A21 | 平台管理员无仓库评审权限时,在生成变更请求包之前报错 | US2-9, FR-020 | example | PENDING | |
-| A22 | 给定可实施 Spec,产出的代码带有覆盖每条验收用例的自动化测试且全绿 | US3-1, FR-021 | example | PENDING | |
-| A23 | 需要调度编排时,作业定义作为代码纳入同一变更请求一同评审 | US3-2, FR-022 | example | PENDING | |
-| A24 | 子 Agent 写入越出工作区被拒,其他在途任务不受影响 | US3-3, FR-042 | example | PENDING | |
-| A25 | 推送并开变更请求作为交互式审批送达开发负责人,获批后才执行 | US3-4, FR-044 | example | PENDING | |
-| A26 | 测试全绿且变更请求已开时,停在 G3 等人确认,不自行合并 | US3-5, FR-045 | example | PENDING | |
-| A27 | 人合并打标签后,交接物为不可变制品引用,不含任何可写源码位置 | US3-6, FR-023 | example | PENDING | |
-| A28 | 变更架构或范围时,先改 Spec 再改实现,Spec 未更新则拒绝改实现 | US3-7, FR-024 | example | PENDING | |
-| A29 | 私有仓库的克隆、拉取、推送三个动作全部认证成功,且磁盘不留凭证文件 | US3-8, FR-068, FR-069 | example | PENDING | |
-| A30 | Agent 令牌无合并权限时,其合并尝试被托管服务拒绝 | US3-9, FR-070 | example | PENDING | |
-| A31 | 未配置 git 凭证时,公共仓库匿名克隆正常工作 | US3-10, FR-068 | example | PENDING | |
-| A32 | 架构开发 Agent 能从目录读到数据源与落地表的结构与归属,写入正式资产被拒 | US3-11, FR-081, FR-103 | example | PENDING | |
-| A33 | 按制品引用执行管线时,新快照以新版本标识存放,旧快照与旧副本未被改动 | US4-1, FR-026 | example | PENDING | |
-| A34 | 门禁任一项未达阈值时,线上指向不切换,旧版本继续服务,失败项及实际值被报告 | US4-2, FR-028 | example | DONE | `tests/policies/pipely/test_flow_acceptance.py::test_a_failing_quality_check_leaves_the_live_pointer_where_it_is` / `::test_a_passing_quality_check_lets_the_switch_be_requested` —— **本特性第一条端到端链路**:工具 → 策略 → 标签 → 下一次调用 |
-| A35 | 门禁全部通过时,切换作为独立交互式审批送达运维负责人,获批前指向不变 | US4-3, FR-029 | example | PENDING | |
-| A36 | 回滚时线上指向指回上一副本且数据可查,不重建数据、不回退代码 | US4-4, FR-030 | example | PENDING | |
-| A37 | 上线完成后,目录记录的版本、计数、质量、血缘与运行状态与实际部署一致 | US4-5, FR-031 | example | PENDING | |
-| A38 | 上游数据无变化时尽早结束,不生成新版本、不改动指向,并报告"无变化" | US4-6, FR-032 | example | PENDING | |
-| A39 | 运维发布 Agent 读取或修改源码的尝试被拒 | US4-7, FR-025 | example | PENDING | |
-| A40 | 连续失败/结构破坏性变更/权限错误时告警;仅平台对象或策略变更才升级管理员 | US4-8, FR-034 | example | PENDING | |
+| A20 | 同一变更请求包重复核验,结果一致且无副作用 | US2-8, FR-019 | example | DONE(**部分**) | `tests/tools/pipely/test_verify_governance.py::test_verifying_the_same_assertions_twice_gives_the_same_answer` —— 一致性已钉住;"无副作用"随 U44 阻塞于真实目录 |
+| A21 | 平台管理员无仓库评审权限时,在生成变更请求包之前报错 | US2-9, FR-020 | example | BLOCKED | 需**真实外部系统**(OpenMetadata / GitHub / Airflow),本仓库无可用实例 |
+| A22 | 给定可实施 Spec,产出的代码带有覆盖每条验收用例的自动化测试且全绿 | US3-1, FR-021 | example | BLOCKED | 需**真实外部系统**(OpenMetadata / GitHub / Airflow),本仓库无可用实例 |
+| A23 | 需要调度编排时,作业定义作为代码纳入同一变更请求一同评审 | US3-2, FR-022 | example | BLOCKED | 需**真实外部系统**(OpenMetadata / GitHub / Airflow),本仓库无可用实例 |
+| A24 | 子 Agent 写入越出工作区被拒,其他在途任务不受影响 | US3-3, FR-042 | example | BLOCKED | 需**真实外部系统**(OpenMetadata / GitHub / Airflow),本仓库无可用实例 |
+| A25 | 推送并开变更请求作为交互式审批送达开发负责人,获批后才执行 | US3-4, FR-044 | example | BLOCKED | 需**真实外部系统**(OpenMetadata / GitHub / Airflow),本仓库无可用实例 |
+| A26 | 测试全绿且变更请求已开时,停在 G3 等人确认,不自行合并 | US3-5, FR-045 | example | BLOCKED | **闸门语义冲突,待人决策**:`data-model.md` 规定 `g3_passed` 由"变更请求已合并、制品引用已产出"推进,而 `examples/pipely/config.yaml` 把它接成了 `tool_result:quality_gate`。质量门禁属阶段 4,该守的是 G4 的切换审批。改哪一边是 spec 级决定,循环不自行改写(见 cycle-log 的冲突条目) |
+| A27 | 人合并打标签后,交接物为不可变制品引用,不含任何可写源码位置 | US3-6, FR-023 | example | DONE | `tests/tools/pipely/test_artifact_ref.py::test_building_a_reference_from_a_branch_is_refused` + `::test_an_existing_reference_cannot_be_edited` + `::test_a_reference_pins_code_artifact_thresholds_and_assertions` |
+| A28 | 变更架构或范围时,先改 Spec 再改实现,Spec 未更新则拒绝改实现 | US3-7, FR-024 | example | BLOCKED | 需**运行中的 Agent + LLM** —— 该行为判定的是模型产出/追问的内容,策略与工具层证不了 |
+| A29 | 私有仓库的克隆、拉取、推送三个动作全部认证成功,且磁盘不留凭证文件 | US3-8, FR-068, FR-069 | example | BLOCKED | 需**真实外部系统**(OpenMetadata / GitHub / Airflow),本仓库无可用实例 |
+| A30 | Agent 令牌无合并权限时,其合并尝试被托管服务拒绝 | US3-9, FR-070 | example | BLOCKED | 需**真实外部系统**(OpenMetadata / GitHub / Airflow),本仓库无可用实例 |
+| A31 | 未配置 git 凭证时,公共仓库匿名克隆正常工作 | US3-10, FR-068 | example | BLOCKED | 需**真实外部系统**(OpenMetadata / GitHub / Airflow),本仓库无可用实例 |
+| A32 | 架构开发 Agent 能从目录读到数据源与落地表的结构与归属,写入正式资产被拒 | US3-11, FR-081, FR-103 | example | BLOCKED | 需**真实外部系统**(OpenMetadata / GitHub / Airflow),本仓库无可用实例 |
+| A33 | 按制品引用执行管线时,新快照以新版本标识存放,旧快照与旧副本未被改动 | US4-1, FR-026 | example | BLOCKED | 需**真实外部系统**(OpenMetadata / GitHub / Airflow),本仓库无可用实例 |
+| A34 | 门禁任一项未达阈值时,线上指向不切换,旧版本继续服务,失败项及实际值被报告 | US4-2, FR-028 | example | DONE | `tests/policies/pipely/test_flow_acceptance.py::test_a_failing_quality_check_leaves_the_live_pointer_where_it_is` / `::test_a_passing_quality_check_lets_the_switch_be_requested` —— **本特性第一条端到端链路**:工具 → 策略 → 标签 → 下一次调用。⚠️ 其中具体授予值(`quality_gate` → `g3_passed`)与 data-model 冲突,随 A26 的裁决可能改动;链路本身的结论不受影响 |
+| A35 | 门禁全部通过时,切换作为独立交互式审批送达运维负责人,获批前指向不变 | US4-3, FR-029 | example | BLOCKED | 需**真实外部系统**(OpenMetadata / GitHub / Airflow),本仓库无可用实例 |
+| A36 | 回滚时线上指向指回上一副本且数据可查,不重建数据、不回退代码 | US4-4, FR-030 | example | BLOCKED | 需**真实外部系统**(OpenMetadata / GitHub / Airflow),本仓库无可用实例 |
+| A37 | 上线完成后,目录记录的版本、计数、质量、血缘与运行状态与实际部署一致 | US4-5, FR-031 | example | BLOCKED | 需**真实外部系统**(OpenMetadata / GitHub / Airflow),本仓库无可用实例 |
+| A38 | 上游数据无变化时尽早结束,不生成新版本、不改动指向,并报告"无变化" | US4-6, FR-032 | example | BLOCKED | 需**真实外部系统**(OpenMetadata / GitHub / Airflow),本仓库无可用实例 |
+| A39 | 运维发布 Agent 读取或修改源码的尝试被拒 | US4-7, FR-025 | example | DONE | `tests/policies/pipely/test_agent_declarations.py::test_the_no_shell_sub_agents_declare_no_os_env[operations]` —— 无 `os_env` 即无 shell 与文件工具:运维发布**没有读改源码的机制**,不是靠规矩约束 |
+| A40 | 连续失败/结构破坏性变更/权限错误时告警;仅平台对象或策略变更才升级管理员 | US4-8, FR-034 | example | BLOCKED | 需**运行中的 Agent + LLM** —— 该行为判定的是模型产出/追问的内容,策略与工具层证不了 |
 | A41 | 部署不在制品引用范围内的作业定义被拒 | US4-9, FR-056 | example | DONE | `tests/policies/pipely/test_flow_acceptance.py::test_release_stays_inside_what_the_artifact_was_verified_to_contain` |
 | A42 | 用调度凭证执行平台级治理操作被拒 | US4-10, FR-057 | example | DONE | `tests/policies/pipely/test_flow_acceptance.py::test_the_scheduler_credential_cannot_govern_only_run` |
-| A43 | 字段含义或归属类问题从治理目录取答案,不猜测也不从查询服务拼凑 | US5-1, FR-036 | example | PENDING | |
-| A44 | 歧义术语先查词表消歧再检索,并在结果中说明采用了哪个术语 | US5-2, FR-037 | example | PENDING | |
-| A45 | 每条检索结果含唯一标识、标题、命中条件与命中原因,不含内部路径类字段 | US5-3, FR-038 | example | PENDING | |
+| A43 | 字段含义或归属类问题从治理目录取答案,不猜测也不从查询服务拼凑 | US5-1, FR-036 | example | BLOCKED | 需**运行中的 Agent + LLM** —— 该行为判定的是模型产出/追问的内容,策略与工具层证不了 |
+| A44 | 歧义术语先查词表消歧再检索,并在结果中说明采用了哪个术语 | US5-2, FR-037 | example | BLOCKED | 需**运行中的 Agent + LLM** —— 该行为判定的是模型产出/追问的内容,策略与工具层证不了 |
+| A45 | 每条检索结果含唯一标识、标题、命中条件与命中原因,不含内部路径类字段 | US5-3, FR-038 | example | BLOCKED | 需**运行中的 Agent + LLM** —— 该行为判定的是模型产出/追问的内容,策略与工具层证不了 |
 | A46 | 服务验证 Agent 的写入/建索引/切指向尝试被拒,失败信息不泄漏凭证 | US5-4, FR-035 | example | DONE(**部分**) | `tests/policies/pipely/test_flow_acceptance.py::test_the_consumer_agent_cannot_write_but_can_still_search` —— 拒绝侧已钉住;"失败信息不泄漏凭证"需真实调用产生的错误文本,待外部系统接入 |
-| A47 | 返回结果超上限时使用分页,不一次性拉取全部 | US5-5, FR-039 | example | PENDING | |
+| A47 | 返回结果超上限时使用分页,不一次性拉取全部 | US5-5, FR-039 | example | BLOCKED | 需**运行中的 Agent + LLM** —— 该行为判定的是模型产出/追问的内容,策略与工具层证不了 |
 
 ## Inner loop: unit behaviors
 
