@@ -52,14 +52,14 @@
 
 ### 硬强制载体(两处必须写 Python)
 
-- [ ] T013 [P] [U33][U34][U35][U36][U37][U38][U39][A11][A12] 编写 `tests/tools/pipely/test_bot_selfcheck.py`:先落**负向探测**用例——只读 bot 的写探测**未被拒**时,`passed` 必须为 False 且该 bot 进入 `over_privileged`(FR-074、SC-025)
-- [ ] T014 [U33][U34][U35][U36][U37][U38][U39] 实现 `omnigent/tools/pipely/bot_selfcheck.py`,使 T013 转绿;返回结构按 `contracts/tools.md`
+- [X] T013 [P] [U33][U34][U35][U36][U37][U38][U39][A11][A12] 编写 `tests/tools/pipely/test_bot_selfcheck.py`:先落**负向探测**用例——只读 bot 的写探测**未被拒**时,`passed` 必须为 False 且该 bot 进入 `over_privileged`(FR-074、SC-025)
+- [X] T014 [U33][U34][U35][U36][U37][U38][U39] 实现 `omnigent/tools/pipely/bot_selfcheck.py`,使 T013 转绿;返回结构按 `contracts/tools.md`
 - [X] T015 [P] [U1][U2][U3][U4][U5][U6][U7] 编写 `tests/policies/pipely/test_preflight.py`:三类失败必须**分别报告**——缺凭证、未共享、已共享但未委派审批权(FR-060、US1 场景 8/9)
 - [X] T016 [U1][U2][U3][U4][U5][U6][U7] 实现 `omnigent/policies/pipely/preflight.py`,在**首个工具调用**上拦截并写 `pipely.preflight.*` 标签(FR-091;运行时无启动自检钩子)
 - [X] T017 [P] [U8][U9][U10][U11][U12][U13][U14][U15][U16][U17][U18][U19][U20][U21] 编写 `tests/policies/pipely/test_gates.py`:覆盖越序被拒、一会话一实例、以及**模型自述不写标签**(FR-090、FR-097、FR-099、SC-033)
 - [X] T018 [U8][U9][U10][U11][U12][U13][U14][U15][U16][U17][U18][U19][U20][U21] 实现 `omnigent/policies/pipely/gates.py`:`bind_flow_instance`、`require_gate`、`record_gate_passage`;标签模型按 `data-model.md`
-- [ ] T019 [P] [U27][U28][U29][U30][U31][U32] 编写 `tests/policies/pipely/test_identity.py`:跨管线写入被拒、沙箱 Domain 外写入被拒(FR-105、SC-040)
-- [ ] T020 [U27][U28][U29][U30][U31][U32] 实现 `omnigent/policies/pipely/identity.py`
+- [X] T019 [P] [U27][U28][U29][U30][U31][U32] 编写 `tests/policies/pipely/test_identity.py`:跨管线写入被拒、沙箱 Domain 外写入被拒(FR-105、SC-040)
+- [X] T020 [U27][U28][U29][U30][U31][U32] 实现 `omnigent/policies/pipely/identity.py`
 - [ ] T021 [A5][A6] 在编排者与各子 Agent 的 `guardrails.policies` 中挂载上述策略,按 `contracts/policies.md` 配置 `on` 与 `condition`
 
 - [ ] T085 [P] [U61][U62][U63][U64][U65][U66][U67][U68] 编写 `tests/policies/pipely/test_agent_declarations.py`:断言三个无 shell 子 Agent 的定义**不含** `os_env`、共享档为具名用户而非匿名公开、`ask_timeout` 覆盖天级、各 MCP 工具白名单无越权、**平台管理凭证不出现在任何 Agent 配置中**
@@ -103,7 +103,7 @@
 
 ### Tests for User Story 2
 
-- [ ] T031 [P] [US2] [U40][U41][U42][U46] `tests/tools/pipely/test_verify_governance.py`:断言不满足时 `passed=False` 且 `missing_steps` 非空,失败项含期望值与实际值(FR-017、FR-018)
+- [X] T031 [P] [US2] [U40][U41][U42][U46] `tests/tools/pipely/test_verify_governance.py`:断言不满足时 `passed=False` 且 `missing_steps` 非空,失败项含期望值与实际值(FR-017、FR-018)
 - [ ] T032 [P] [US2] [U43][U44] `tests/tools/pipely/test_verify_idempotent.py`:重复核验结果一致且无副作用(FR-019、US2 场景 8)
 - [X] T033 [P] [US2] [U13][U14][U15][U16] `tests/policies/pipely/test_gate_g2_from_tool_result.py`:**模型声称"已核验"不写 `g2_passed`;只有工具真实返回 `passed=True` 才写**(FR-097、SC-036)——本特性最关键的一条
 - [ ] T034 [P] [US2] [U45][A19] `tests/policies/pipely/test_governance_readonly.py`:治理审计 Agent 的任何写入尝试被拒(FR-011、US2 场景 7)
@@ -134,14 +134,14 @@
 ### Tests for User Story 3
 
 - [ ] T043 [P] [US3] [A24] `tests/policies/pipely/test_worktree_scope.py`:写入越出工作区被拒,且不影响该 Agent 的其他在途任务(FR-042、US3 场景 3)
-- [ ] T044 [P] [US3] [U22][U23][U24] `tests/policies/pipely/test_handoff_artifact_ref.py`:交接物含分支名/工作区路径时被拒(FR-023、SC-012)
+- [X] T044 [P] [US3] [U22][U23][U24] `tests/policies/pipely/test_handoff_artifact_ref.py`:交接物含分支名/工作区路径时被拒(FR-023、SC-012)
 - [ ] T045 [P] [US3] [A30] `tests/policies/pipely/test_no_merge_by_agent.py`:Agent 发起合并被拒——由**凭证层**强制而非提示词(FR-045、FR-070、US3 场景 9)
 - [ ] T046 [P] [US3] [A29] `tests/integration/pipely/test_git_credentials.py`:私有仓库的克隆、拉取、推送三个动作都认证成功,且磁盘上不留凭证文件(FR-068、FR-069、US3 场景 8)
 - [ ] T047 [P] [US3] [A31] `tests/integration/pipely/test_anonymous_clone.py`:未配置 git 凭证时公共仓库匿名克隆正常(FR-068、US3 场景 10)
 - [ ] T048 [P] [US3] [U29][U30][A32] `tests/policies/pipely/test_sandbox_domain_scope.py`:架构开发 bot 写沙箱 Domain 内成功、写正式资产被拒(FR-103、SC-038、US3 场景 11)
 - [ ] T049 [P] [US3] [A26][A27] `tests/policies/pipely/test_gate_g3.py`:测试未全绿或变更请求未开时 G3 不通过;通过后交接物为不可变制品引用
 
-- [ ] T083 [P] [US3] [U54][U55][U56][U57] 编写 `tests/tools/pipely/test_artifact_ref.py`:制品引用含四项、**不含任何可写源码位置**、已存在时拒绝修改、同标签重复产出幂等
+- [X] T083 [P] [US3] [U54][U55][U56][U57] 编写 `tests/tools/pipely/test_artifact_ref.py`:制品引用含四项、**不含任何可写源码位置**、已存在时拒绝修改、同标签重复产出幂等
 - [ ] T086 [P] [US3] [A22][A23][A25][A28] 编写 `tests/integration/pipely/test_dev_workflow.py`:验收用例都有对应测试且全绿、调度作业定义纳入同一变更请求、推送开 PR 走交互式审批、**Spec 未更新时拒绝改实现**
 
 ### Implementation for User Story 3
@@ -166,7 +166,7 @@
 
 ### Tests for User Story 4
 
-- [ ] T055 [P] [US4] [U47][U48][U49][U50][U51][U52][U53] `tests/tools/pipely/test_quality_gate.py`:任一项未达阈值时 `passed=False`,且该项的**实际值与阈值都在返回里**(FR-027、FR-028)
+- [X] T055 [P] [US4] [U47][U48][U49][U50][U51][U52][U53] `tests/tools/pipely/test_quality_gate.py`:任一项未达阈值时 `passed=False`,且该项的**实际值与阈值都在返回里**(FR-027、FR-028)
 - [ ] T056 [P] [US4] [A34] `tests/policies/pipely/test_no_promote_on_gate_fail.py`:门禁失败时线上指向**不切换**,旧版本继续服务(FR-028、US4 场景 2)
 - [ ] T057 [P] [US4] [A35] `tests/policies/pipely/test_g4_independent_approval.py`:门禁通过**不自动放行**,切换必须经独立的交互式审批(FR-029、US4 场景 3)
 - [ ] T058 [P] [US4] [A39] `tests/policies/pipely/test_ops_no_source_access.py`:运维发布 Agent 读写源码的尝试被拒——它没有文件与 shell 工具(FR-025、SC-006、US4 场景 7)
@@ -175,7 +175,7 @@
 - [ ] T061 [P] [US4] [A38] `tests/integration/pipely/test_no_change_no_version.py`:上游无变化时尽早结束,不生成新版本、不改动线上指向(FR-032、US4 场景 6)
 - [ ] T062 [P] [US4] [A36] `tests/integration/pipely/test_rollback.py`:回滚在约定时限内把指向指回上一副本,**不重建数据、不回退代码**(FR-030、SC-007)
 
-- [ ] T084 [P] [US4] [U58][U59][U60] 编写 `tests/tools/pipely/test_sync_catalog.py`:同步后目录字段与输入一致、**"目录不可达"与"调度器不可达"分别报告**、重复同步不产生重复记录
+- [X] T084 [P] [US4] [U58][U59][U60] 编写 `tests/tools/pipely/test_sync_catalog.py`:同步后目录字段与输入一致、**"目录不可达"与"调度器不可达"分别报告**、重复同步不产生重复记录
 
 ### Implementation for User Story 4
 
