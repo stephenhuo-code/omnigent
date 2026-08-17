@@ -26,7 +26,7 @@ profile 记录的 `acceptance` 是 `uv run pytest tests/e2e_ui`——Playwright 
 | A2 | 需求缺更新频率与数据规模时,产出 Spec 之前先提问而非填默认值 | US1-2, FR-008 | example | PENDING | |
 | A3 | Spec 要求平台不具备的能力时,评审结论指出不可行及原因,状态不进入"可实施" | US1-3, FR-009 | example | PENDING | |
 | A4 | 需求评审后被修改时,修订同一份 Spec 并保留变更记录,不另起矛盾文档 | US1-4 | example | PENDING | |
-| A5 | Spec 齐备且评审可实施时,停在 G1 并出示权限申请清单,确认前不生成变更请求包 | US1-5, FR-047 | example | PENDING | |
+| A5 | Spec 齐备且评审可实施时,停在 G1 并出示权限申请清单,确认前不生成变更请求包 | US1-5, FR-047 | example | DONE(**部分**) | `tests/policies/pipely/test_flow_acceptance.py::test_no_change_request_package_before_the_spec_is_frozen` —— G1 闸门的拦截与放行已在真实引擎上钉住;"出示权限申请清单"属产出内容,需 LLM 运行 |
 | A6 | 前置配置缺凭证时,派发任何任务之前一次性列出全部缺失项并停止 | US1-6, FR-060 | example | DONE | `tests/policies/pipely/test_flow_acceptance.py::test_no_task_is_dispatched_until_preconditions_are_verified` / `::test_a_partly_configured_deployment_is_told_every_gap_at_once` |
 | A7 | 架构开发 Agent 读自身进程环境时,只能读到模型访问与代码托管两项凭证 | US1-7, FR-062 | example | PENDING | |
 | A8 | 会话未共享给平台管理员时,派发前报出"闸门待办无法送达"并指明缺失的共享对象 | US1-8, FR-084 | example | PENDING | |
@@ -62,7 +62,7 @@ profile 记录的 `acceptance` 是 `uv run pytest tests/e2e_ui`——Playwright 
 | A38 | 上游数据无变化时尽早结束,不生成新版本、不改动指向,并报告"无变化" | US4-6, FR-032 | example | PENDING | |
 | A39 | 运维发布 Agent 读取或修改源码的尝试被拒 | US4-7, FR-025 | example | PENDING | |
 | A40 | 连续失败/结构破坏性变更/权限错误时告警;仅平台对象或策略变更才升级管理员 | US4-8, FR-034 | example | PENDING | |
-| A41 | 部署不在制品引用范围内的作业定义被拒 | US4-9, FR-056 | example | PENDING | |
+| A41 | 部署不在制品引用范围内的作业定义被拒 | US4-9, FR-056 | example | DONE | `tests/policies/pipely/test_flow_acceptance.py::test_release_stays_inside_what_the_artifact_was_verified_to_contain` |
 | A42 | 用调度凭证执行平台级治理操作被拒 | US4-10, FR-057 | example | DONE | `tests/policies/pipely/test_flow_acceptance.py::test_the_scheduler_credential_cannot_govern_only_run` |
 | A43 | 字段含义或归属类问题从治理目录取答案,不猜测也不从查询服务拼凑 | US5-1, FR-036 | example | PENDING | |
 | A44 | 歧义术语先查词表消歧再检索,并在结果中说明采用了哪个术语 | US5-2, FR-037 | example | PENDING | |

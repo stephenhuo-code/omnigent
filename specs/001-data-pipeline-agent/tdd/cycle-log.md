@@ -819,3 +819,18 @@ E   assert [] != []
   恢复后 85 passed。
 - **绿**:实现未变。
 - **重构**:`ruff` 修了一处 import 顺序,重跑仍 85 passed。
+
+## Cycle 77 · A5 · 确认前不生成变更请求包 —— 部分完成
+
+- **测试**:`::test_no_change_request_package_before_the_spec_is_frozen`
+- **红**:首跑即绿。**故意变异**:闸门判定改 `if False` → `AssertionError: assert 'deny' == 'allow'`。恢复后 86 passed。
+- **绿**:实现未变。这一轮顺带证明了**引擎确实把 `initial_labels` 传到了策略手里** ——
+  闸门机制的另一半接线,此前同样只有手搓事件在证明。
+- **限度**:"出示权限申请清单"是产出内容,要 LLM 跑起来才能判,已在清单注明为部分完成。
+
+## Cycle 78 · A41 · 部署不得超出制品范围
+
+- **测试**:`::test_release_stays_inside_what_the_artifact_was_verified_to_contain`
+- **红**:首跑即绿。**故意变异**:`out_of_scope = []`(容忍任何超范围)→ `assert True is False`。恢复后 87 passed。
+- **绿**:实现未变。测试同时构造真实的制品引用,确认两者能配合。
+- **重构**:无需重构。

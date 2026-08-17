@@ -27,9 +27,11 @@ import pytest
 from omnigent.entities import ConversationItem, PagedList
 from omnigent.policies.function import resolve_function_policy
 from omnigent.policies.pipely.gates import GATE_LABEL
+from omnigent.policies.pipely.handoff import check_deployment_scope
 from omnigent.policies.pipely.preflight import assess
 from omnigent.runtime.policies.engine import PolicyEngine
 from omnigent.spec.types import FunctionPolicySpec, FunctionRef, Phase
+from omnigent.tools.pipely.artifact_ref import build
 from omnigent.tools.pipely.verify_governance import verify
 
 CONV_ID = "conv_pipely_flow"
@@ -281,3 +283,68 @@ def test_a_partly_configured_deployment_is_told_every_gap_at_once() -> None:
         "credential:om_reader",
         "session:not_shared",
     ]
+
+
+def _gate_engine(*, minimum: str, labels: dict[str, str] | None = None) -> PolicyEngine:
+    """Build an engine carrying a phase gate at *minimum*."""
+    spec = FunctionPolicySpec(
+        name="require_gate",
+        on=None,
+        function=FunctionRef(
+            path="omnigent.policies.pipely.gates.require_gate",
+            arguments={"minimum": minimum},
+        ),
+    )
+    return PolicyEngine(
+        policies=[resolve_function_policy(spec)],
+        label_defs={},
+        ask_timeout=30,
+        conversation_id=CONV_ID,
+        initial_labels=dict(labels or {}),
+        conversation_store=_Store(),  # type: ignore[arg-type]
+    )
+
+
+@pytest.mark.asyncio
+async def test_no_change_request_package_before_the_spec_is_frozen() -> None:
+    """G1 is the development lead's decision, and it gates real work.
+
+    The package is built from the frozen spec, so producing one first means
+    producing it twice — and the second silently contradicts whatever the
+    administrator already began executing from the first.
+    """
+    before = _gate_engine(minimum="g1_passed")
+    after = _gate_engine(minimum="g1_passed", labels={GATE_LABEL: "g1_passed"})
+
+    refused = await before.evaluate(_tool_call_ctx("generate_change_request"))
+    allowed = await after.evaluate(_tool_call_ctx("generate_change_request"))
+
+    assert refused.action.value == "deny"
+    assert allowed.action.value == "allow"
+
+
+def test_release_stays_inside_what_the_artifact_was_verified_to_contain() -> None:
+    """Deploying beyond the artifact deploys something nobody graded.
+
+    The quality gate ran against the artifact's contents. A job that was not in
+    it has no threshold, no golden case, and no review — and it would go live
+    alongside the ones that had all three.
+    """
+    artifact = build(
+        code_tag="pipely/orders_daily/v1.4.2",
+        artifact_tag="sha256:9f1c0b",
+        thresholds={"record_count": 5_000},
+        assertions={"owner_set": "data_platform"},
+    )
+    contained = ["orders_daily_load", "orders_daily_publish"]
+
+    inside = check_deployment_scope(artifact_jobs=contained, requested_jobs=["orders_daily_load"])
+    outside = check_deployment_scope(
+        artifact_jobs=contained,
+        requested_jobs=["orders_daily_load", "orders_daily_backfill"],
+    )
+
+    assert artifact["code_tag"] == "pipely/orders_daily/v1.4.2"
+    assert inside["passed"] is True
+    assert outside["passed"] is False
+    assert "orders_daily_backfill" in outside["reason"]
