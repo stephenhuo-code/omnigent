@@ -109,11 +109,11 @@ profile 记录的 `acceptance` 是 `uv run pytest tests/e2e_ui`——Playwright 
 
 | id  | behavior | traces | kind | state | test |
 | --- | --- | --- | --- | --- | --- |
-| U22 | 交接物含分支名时拒绝 | FR-023 | example | PENDING | |
-| U23 | 交接物含工作区路径时拒绝 | FR-023 | example | PENDING | |
-| U24 | 交接物仅含代码标签、制品标签与冻结契约时放行 | FR-023 | example | PENDING | |
-| U25 | 部署的作业定义在制品引用范围内时放行 | FR-056 | example | PENDING | |
-| U26 | 部署的作业定义不在制品引用范围内时拒绝,原因指明超出范围 | FR-056 | example | PENDING | |
+| U22 | 交接物含分支名时拒绝 | FR-023 | example | DONE | `tests/policies/pipely/test_handoff.py::test_a_handoff_naming_a_branch_is_refused` |
+| U23 | 交接物含工作区路径时拒绝 | FR-023 | example | DONE | `tests/policies/pipely/test_handoff.py::test_a_handoff_naming_a_workspace_path_is_refused` |
+| U24 | 交接物仅含代码标签、制品标签与冻结契约时放行 | FR-023 | example | DONE | `tests/policies/pipely/test_handoff.py::test_a_handoff_of_only_immutable_references_is_admitted` |
+| U25 | 部署的作业定义在制品引用范围内时放行 | FR-056 | example | DONE | `tests/policies/pipely/test_handoff.py::test_deploying_a_job_the_artifact_covers_is_admitted` |
+| U26 | 部署的作业定义不在制品引用范围内时拒绝,原因指明超出范围 | FR-056 | example | DONE | `tests/policies/pipely/test_handoff.py::test_deploying_a_job_outside_the_artifact_names_what_is_out_of_scope` |
 
 ### `omnigent/policies/pipely/identity.py`
 

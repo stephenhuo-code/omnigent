@@ -374,3 +374,41 @@ E   assert [] != []
   取消/超时后断言 `engine.labels == {}`。这就是 U21 的行为,且断言真实有效。
 - **处理**:按 playbook Phase 1"已被既有通过测试覆盖"一条,撤回我写的测试与桩(未进入任何提交),
   把 U21 记为 DONE 并在 test-list 中指明覆盖它的既有测试。
+
+## Cycle 24 · U22 · 交接物含分支名时拒绝
+
+- **测试**:`tests/policies/pipely/test_handoff.py::test_a_handoff_naming_a_branch_is_refused`
+- **红**:`uv run pytest tests/policies/pipely/test_handoff.py -q -p no:randomly` → `assert True is False`
+  (新建 `handoff.py` 时先写一律放行的桩。)
+- **绿**:拒绝以 `refs/heads/` 开头的引用。23 passed。
+- **重构**:无需重构。
+
+## Cycle 25 · U23 · 交接物含工作区路径时拒绝
+
+- **测试**:`::test_a_handoff_naming_a_workspace_path_is_refused`
+- **红**:`-k workspace_path` → `assert True is False`
+- **绿**:同时拒绝绝对路径。24 passed。
+- **重构**:无需重构(合并两个前缀的重构留到 U26,见该轮)。
+
+## Cycle 26 · U24 · 仅含不可变引用时放行
+
+- **测试**:`::test_a_handoff_of_only_immutable_references_is_admitted`
+- **红**:首跑即绿。**故意变异**:判定改为 `if True`(拒绝一切)→ `assert False is True`。恢复。
+- **绿**:实现未变。本轮把白名单的正向侧钉住,避免后续把拒绝条件放宽成"全拒"或"全放"。
+- **重构**:无需重构。
+
+## Cycle 27 · U25 · 部署在制品范围内时放行
+
+- **测试**:`::test_deploying_a_job_the_artifact_covers_is_admitted`
+- **红**:`-k artifact_covers` → `assert False is True`(桩一律不通过)
+- **绿**:`check_deployment_scope` 求差集。26 passed。
+- **重构**:无需重构。
+
+## Cycle 28 · U26 · 超范围时拒绝且原因具名
+
+- **测试**:`::test_deploying_a_job_outside_the_artifact_names_what_is_out_of_scope`
+- **红**:`-k outside_the_artifact` → `AssertionError: assert 'orders_daily_backfill' in ''`
+- **绿**:原因文本列出超范围的作业名。27 passed。
+- **重构**:绿灯下做了一次。`ruff` 报 PIE810(两次 `startswith`),
+  合并为单个 `_MUTABLE_PREFIXES` 元组并加注释说明"分支会前进、路径只在发送方机器上成立"。
+  重构后重跑:27 passed,ruff / pyrefly 全过。

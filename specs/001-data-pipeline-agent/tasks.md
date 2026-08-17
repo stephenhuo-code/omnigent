@@ -56,8 +56,8 @@
 - [ ] T014 [U33][U34][U35][U36][U37][U38][U39] 实现 `omnigent/tools/pipely/bot_selfcheck.py`,使 T013 转绿;返回结构按 `contracts/tools.md`
 - [X] T015 [P] [U1][U2][U3][U4][U5][U6][U7] 编写 `tests/policies/pipely/test_preflight.py`:三类失败必须**分别报告**——缺凭证、未共享、已共享但未委派审批权(FR-060、US1 场景 8/9)
 - [X] T016 [U1][U2][U3][U4][U5][U6][U7] 实现 `omnigent/policies/pipely/preflight.py`,在**首个工具调用**上拦截并写 `pipely.preflight.*` 标签(FR-091;运行时无启动自检钩子)
-- [ ] T017 [P] [U8][U9][U10][U11][U12][U13][U14][U15][U16][U17][U18][U19][U20][U21] 编写 `tests/policies/pipely/test_gates.py`:覆盖越序被拒、一会话一实例、以及**模型自述不写标签**(FR-090、FR-097、FR-099、SC-033)
-- [ ] T018 [U8][U9][U10][U11][U12][U13][U14][U15][U16][U17][U18][U19][U20][U21] 实现 `omnigent/policies/pipely/gates.py`:`bind_flow_instance`、`require_gate`、`record_gate_passage`;标签模型按 `data-model.md`
+- [X] T017 [P] [U8][U9][U10][U11][U12][U13][U14][U15][U16][U17][U18][U19][U20][U21] 编写 `tests/policies/pipely/test_gates.py`:覆盖越序被拒、一会话一实例、以及**模型自述不写标签**(FR-090、FR-097、FR-099、SC-033)
+- [X] T018 [U8][U9][U10][U11][U12][U13][U14][U15][U16][U17][U18][U19][U20][U21] 实现 `omnigent/policies/pipely/gates.py`:`bind_flow_instance`、`require_gate`、`record_gate_passage`;标签模型按 `data-model.md`
 - [ ] T019 [P] [U27][U28][U29][U30][U31][U32] 编写 `tests/policies/pipely/test_identity.py`:跨管线写入被拒、沙箱 Domain 外写入被拒(FR-105、SC-040)
 - [ ] T020 [U27][U28][U29][U30][U31][U32] 实现 `omnigent/policies/pipely/identity.py`
 - [ ] T021 [A5][A6] 在编排者与各子 Agent 的 `guardrails.policies` 中挂载上述策略,按 `contracts/policies.md` 配置 `on` 与 `condition`
@@ -105,7 +105,7 @@
 
 - [ ] T031 [P] [US2] [U40][U41][U42][U46] `tests/tools/pipely/test_verify_governance.py`:断言不满足时 `passed=False` 且 `missing_steps` 非空,失败项含期望值与实际值(FR-017、FR-018)
 - [ ] T032 [P] [US2] [U43][U44] `tests/tools/pipely/test_verify_idempotent.py`:重复核验结果一致且无副作用(FR-019、US2 场景 8)
-- [ ] T033 [P] [US2] [U13][U14][U15][U16] `tests/policies/pipely/test_gate_g2_from_tool_result.py`:**模型声称"已核验"不写 `g2_passed`;只有工具真实返回 `passed=True` 才写**(FR-097、SC-036)——本特性最关键的一条
+- [X] T033 [P] [US2] [U13][U14][U15][U16] `tests/policies/pipely/test_gate_g2_from_tool_result.py`:**模型声称"已核验"不写 `g2_passed`;只有工具真实返回 `passed=True` 才写**(FR-097、SC-036)——本特性最关键的一条
 - [ ] T034 [P] [US2] [U45][A19] `tests/policies/pipely/test_governance_readonly.py`:治理审计 Agent 的任何写入尝试被拒(FR-011、US2 场景 7)
 - [ ] T035 [P] [US2] [A13][A14][A17] `tests/integration/pipely/test_change_request_package.py`:三件产物齐备,手册基于**实时状态**生成并标出命名冲突(FR-012~014、US2 场景 1/2)
 - [ ] T036 [P] [US2] [A21] `tests/policies/pipely/test_repo_review_precondition.py`:平台管理员无仓库评审权限时,**在生成变更请求包之前**报错(FR-020、US2 场景 9)
