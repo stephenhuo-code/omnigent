@@ -7,6 +7,7 @@ intended is still contained.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any, TypeAlias
 
 _Json: TypeAlias = dict[str, Any]  # type: ignore[explicit-any]
@@ -15,6 +16,22 @@ ARCHITECT_BOT = "pipely_architect"
 #: Where the architect lands intermediate and result tables. Real assets in a
 #: Domain of their own, so development never writes into governed space.
 SANDBOX_DOMAIN = "pipely_sandbox"
+
+#: Verbs that mutate. Matched as prefixes so a tool added later — a
+#: ``create_glossary``, an ``update_owner`` — is denied without an edit here.
+WRITE_VERBS = (
+    "create",
+    "update",
+    "delete",
+    "patch",
+    "put",
+    "post",
+    "set_",
+    "add_",
+    "remove_",
+    "grant",
+    "revoke",
+)
 
 #: Credentials that must never appear in any Agent's process environment.
 FORBIDDEN_ENV_NAMES = frozenset({"OMNIGENT_OM_ADMIN", "OM_ADMIN_TOKEN"})
@@ -31,6 +48,36 @@ PLATFORM_OPERATIONS = frozenset(
         "delete_policy",
     }
 )
+
+
+def require_read_only(*, bot: str) -> Callable[[_Json, _Json], _Json]:
+    """Factory: refuse any write call made by a read-only *bot*.
+
+    A second, independent mechanism alongside the MCP allow-list. A bot
+    mis-granted in the catalog has nothing else stopping it.
+
+    :param bot: The read-only bot this agent calls with.
+    :returns: An evaluator ``fn(event, config)`` returning a V0 decision.
+    """
+
+    def _evaluate(event: _Json, config: _Json) -> _Json:  # noqa: ARG001
+        """Judge one tool call against the bot's read-only boundary.
+
+        :param event: V0 ``tool_call`` event.
+        :param config: Runtime config dict (unused).
+        :returns: ALLOW / DENY decision dict.
+        """
+        name = str(event.get("data", {}).get("name") or "")
+        # Judged on the VERB, not on a list of known write tools. A list would
+        # silently admit whatever tool is added next; a verb test denies it.
+        if any(name.startswith(verb) for verb in WRITE_VERBS):
+            return {
+                "result": "DENY",
+                "reason": f"{bot} is read-only; {name} would write.",
+            }
+        return {"result": "ALLOW"}
+
+    return _evaluate
 
 
 def check_environment(*, env: dict[str, str]) -> _Json:
@@ -63,6 +110,32 @@ def check_operation(*, credential: str, operation: str) -> _Json:
             ),
         }
     return {"result": "ALLOW"}
+
+
+def deny_platform_operations(*, credential: str) -> Callable[[_Json, _Json], _Json]:
+    """Factory: refuse platform-administration operations on every tool call.
+
+    :func:`check_operation` answers when asked; this answers whether or not
+    anyone remembered to ask.
+
+    :param credential: The credential this agent calls with.
+    :returns: An evaluator ``fn(event, config)`` returning a V0 decision.
+    """
+
+    def _evaluate(event: _Json, config: _Json) -> _Json:  # noqa: ARG001
+        """Judge one tool call against the platform-operation boundary.
+
+        :param event: V0 ``tool_call`` event.
+        :param config: Runtime config dict (unused).
+        :returns: ALLOW / DENY decision dict.
+        """
+        # Delegates so the set of platform operations is defined in one place.
+        return check_operation(
+            credential=credential,
+            operation=str(event.get("data", {}).get("name") or ""),
+        )
+
+    return _evaluate
 
 
 def check_write(*, bot: str, bound_pipeline: str, asset: str) -> _Json:

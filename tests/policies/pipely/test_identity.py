@@ -9,6 +9,8 @@ from omnigent.policies.pipely.identity import (
     check_environment,
     check_operation,
     check_write,
+    deny_platform_operations,
+    require_read_only,
 )
 
 RELEASE_BOT = "pipely_release"
@@ -91,6 +93,62 @@ def test_a_scheduler_credential_cannot_reach_platform_administration() -> None:
     decision = check_operation(
         credential=SCHEDULER_CREDENTIAL,
         operation=PLATFORM_OPERATION,
+    )
+
+    assert decision["result"] == "DENY"
+
+
+def test_a_read_only_bot_calling_a_write_tool_is_denied() -> None:
+    """The declaration says read-only; the policy makes it so on every call.
+
+    The MCP allow-list already omits write verbs, so this is the second of two
+    independent mechanisms. That redundancy is the point: a bot mis-granted in
+    OpenMetadata has nothing else stopping it, and a mis-granted read-only bot
+    is exactly what the self-check exists to find.
+    """
+    decision = require_read_only(bot="governance")(
+        {
+            "type": "tool_call",
+            "data": {"name": "update_table", "arguments": {}},
+            "context": {"labels": {}},
+        },
+        {},
+    )
+
+    assert decision["result"] == "DENY"
+
+
+def test_a_read_only_bot_may_still_read() -> None:
+    """The other side: read-only must not collapse into no-access.
+
+    Without this, a policy that denied everything would pass the test above
+    while making the agent useless.
+    """
+    decision = require_read_only(bot="governance")(
+        {
+            "type": "tool_call",
+            "data": {"name": "get_table", "arguments": {}},
+            "context": {"labels": {}},
+        },
+        {},
+    )
+
+    assert decision["result"] == "ALLOW"
+
+
+def test_a_platform_operation_on_the_scheduler_credential_is_denied_at_call_time() -> None:
+    """The same rule as check_operation, but binding on every tool call.
+
+    check_operation only answers when someone asks it. A policy on tool_call
+    answers whether or not anyone remembered to.
+    """
+    decision = deny_platform_operations(credential=SCHEDULER_CREDENTIAL)(
+        {
+            "type": "tool_call",
+            "data": {"name": PLATFORM_OPERATION, "arguments": {}},
+            "context": {"labels": {}},
+        },
+        {},
     )
 
     assert decision["result"] == "DENY"

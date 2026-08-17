@@ -702,3 +702,24 @@ E   assert [] != []
 - **理由**:闸门是**读标签**来拒绝后续调用的,若不把原因也写到会话上,
   运维只会看到一个没有出处的拒绝,无从回溯是哪一项凭证缺失。
 - **重构**:无需重构。
+
+## Cycle 62 · `identity.require_read_only` · 只读 bot 的写调用被拒(实现期新增)
+
+- **来源**:治理审计与服务验证的 config.yaml 都挂了这条策略,但函数不存在。
+  MCP 白名单已经不注册写工具,这是**第二道独立机制**——在 OpenMetadata 侧被误授权的 bot,
+  白名单之外没有别的东西拦它,而"被误授权的只读 bot"正是 bot 自检要找的东西。
+- **测试**:`tests/policies/pipely/test_identity.py::test_a_read_only_bot_calling_a_write_tool_is_denied`
+- **红**:首跑 `TypeError`(函数不存在),**不是有效红**;加一律放行的桩后 → `AssertionError: assert 'ALLOW' == 'DENY'`
+- **绿**:按**动词前缀**判定而非列举工具名。列举会静默放过下一个新增的写工具;动词判定会拒绝它。61 passed。
+- **补正向侧**:随即补 `::test_a_read_only_bot_may_still_read`——否则"一律拒绝"也能让上面那条绿,
+  而那会让 Agent 完全不可用。**故意变异**(判定改 `if True`)→ `assert 'DENY' == 'ALLOW'`。恢复后 62 passed。
+- **重构**:无需重构。
+
+## Cycle 63 · `identity.deny_platform_operations` · 调度凭证的平台操作在调用期被拒(实现期新增)
+
+- **来源**:operations 的 config.yaml 挂了这条,函数不存在。
+  已有的 `check_operation` 是"被问才答";挂在 `tool_call` 上的策略是"没人问也答"。
+- **测试**:`::test_a_platform_operation_on_the_scheduler_credential_is_denied_at_call_time`
+- **红**:加桩后 → `AssertionError: assert 'ALLOW' == 'DENY'`
+- **绿**:委托给 `check_operation`,平台操作集合只在一处定义。63 passed。
+- **重构**:`ruff` 修了一处 import 顺序,重跑仍 63 passed。
