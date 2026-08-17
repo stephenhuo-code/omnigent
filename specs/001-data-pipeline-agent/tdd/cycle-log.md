@@ -104,3 +104,66 @@ tests/tools/pipely/test_bot_selfcheck.py:37: AssertionError
 **备注**:这是 playbook 中"测试首次即通过"的标准路径。若跳过突变检查直接记为通过,这条测试的价值无法证明——它可能是一条恒真断言。
 
 ---
+
+## Cycle 3 · U1 · 2026-08-17
+
+**行为**:标签未写入时,任何工具调用被拒(未校验视同未通过)
+**追溯**:FR-091
+
+**测试**:`tests/policies/pipely/test_preflight.py::test_tool_call_is_denied_when_no_preflight_result_is_recorded`
+
+**红**
+
+```
+uv run pytest tests/policies/pipely/test_preflight.py -k "no_preflight_result" -q
+E   AssertionError: assert 'ALLOW' == 'DENY'
+tests/policies/pipely/test_preflight.py:27: AssertionError
+1 failed in 0.07s
+```
+
+首次为 `ModuleNotFoundError`(非有效红),按 playbook 加入最小声明——一个恒返回 ALLOW 的求值器——后重跑取得上述断言失败。
+
+**绿**:读事件上下文的会话标签,仅当 `pipely.preflight.status == passed` 才 ALLOW,否则 DENY 并附原因。
+
+```
+.specify/memory/pytest-known.sh --compare tests/policies tests/tools -q
+→ No new failures
+```
+
+**重构**:无需重构。测试中的 `PREFLIGHT_LABEL` 与实现中的常量重复是**刻意保留**的——测试若从被测模块导入自己要断言的标签名,标签写错时测试会跟着错,便无法发现。
+
+**备注**:决策形状取自仓库既有的 V0 契约(`omnigent/policies/builtins/orchestration.py:24` 的 `{"result": "ALLOW"}`),非自创。
+
+---
+
+## Cycle 4 · U4 · 2026-08-17
+
+**行为**:零缺失时校验通过并写入 `pipely.preflight.status = passed`
+**追溯**:FR-091
+
+**测试**:`tests/policies/pipely/test_preflight.py::test_tool_call_is_allowed_once_preflight_is_recorded_as_passed`
+
+**红**:首次运行即通过——Cycle 3 的实现已含正向分支。执行故意突变检查。
+
+```
+突变:删去 `if labels.get(PREFLIGHT_LABEL) == PASSED: return _ALLOW`,使求值器恒 DENY
+
+uv run pytest tests/policies/pipely/test_preflight.py -k "recorded_as_passed" -q
+E   AssertionError: assert 'DENY' == 'ALLOW'
+1 failed, 1 deselected in 0.06s
+```
+
+突变令测试失败,证明该测试确实在断言正向分支。已原样还原并断言无残留。
+
+**绿**:无需新实现;测试固化 U1 的对侧边界。
+
+```
+.specify/memory/pytest-known.sh --compare tests/policies tests/tools -q
+→ No new failures
+```
+
+**重构**:无需重构。
+
+**范围说明**:清单中 U4 的措辞含"并写入 `pipely.preflight.status = passed`"。本轮只覆盖了**读取端**(标签为 passed 时放行);**写入端**属 `run_preflight` 求值器,依赖 `bot_selfcheck` 的工具结果,将在 U2/U3/U5 的循环中驱动。此处如实记录,不把未覆盖的部分算作已完成。
+
+---

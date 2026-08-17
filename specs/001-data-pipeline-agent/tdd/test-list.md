@@ -78,10 +78,10 @@ profile 记录的 `acceptance` 是 `uv run pytest tests/e2e_ui`——Playwright 
 
 | id  | behavior | traces | kind | state | test |
 | --- | --- | --- | --- | --- | --- |
-| U1 | 标签未写入时,任何工具调用被拒(未校验视同未通过) | FR-091 | example | PENDING | |
+| U1 | 标签未写入时,任何工具调用被拒(未校验视同未通过) | FR-091 | example | DONE | `tests/policies/pipely/test_preflight.py::test_tool_call_is_denied_when_no_preflight_result_is_recorded` |
 | U2 | 缺一项凭证时,失败清单恰好含该一项 | FR-060 | example | PENDING | |
 | U3 | 缺多项凭证时,失败清单一次性含全部,不止第一项 | FR-060 | example | PENDING | |
-| U4 | 零缺失时校验通过并写入 `pipely.preflight.status = passed` | FR-091 | example | PENDING | |
+| U4 | 零缺失时校验通过并写入 `pipely.preflight.status = passed` | FR-091 | example | DONE | `tests/policies/pipely/test_preflight.py::test_tool_call_is_allowed_once_preflight_is_recorded_as_passed`(读取端;写入端见 U2/U3/U5) |
 | U5 | "未共享"与"已共享但未委派审批权"产出两种不同的失败标识 | FR-084, FR-085 | example | PENDING | |
 | U6 | 校验只在首个工具调用上执行一次,后续调用读标签不重复探测 | FR-091 | example | PENDING | |
 | U7 | 引导用只读 bot 缺失时,失败原因指明该 bot 且不含"尝试创建"的动作 | FR-076 | example | PENDING | |
