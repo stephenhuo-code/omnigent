@@ -6,7 +6,12 @@ recorded yet" the decisive case: it must read as *not verified*, never as
 *nothing to enforce*.
 """
 
-from omnigent.policies.pipely.preflight import assess, require_preflight
+from omnigent.policies.pipely.preflight import (
+    BOOTSTRAP_BOT,
+    PROVISION_BY_HAND,
+    assess,
+    require_preflight,
+)
 
 PREFLIGHT_LABEL = "pipely.preflight.status"
 
@@ -58,6 +63,34 @@ def test_several_absent_credentials_are_all_reported_at_once() -> None:
         "credential:model_access",
         "credential:om_reader",
     ]
+
+
+def test_a_recorded_result_short_circuits_further_assessment() -> None:
+    """Once a result is on the session, the gate reads it instead of re-probing."""
+    probes: list[str] = []
+
+    def _probe() -> dict[str, bool]:
+        probes.append("ran")
+        return {}
+
+    require_preflight(probe=_probe)(_tool_call(labels={PREFLIGHT_LABEL: "passed"}), {})
+
+    assert probes == []
+
+
+def test_absent_bootstrap_bot_is_remediated_by_hand_not_by_creating_it() -> None:
+    """The bootstrap bot is provisioned by a human; the check must not offer to create it.
+
+    It is the one credential that cannot be self-served: creating it is the very
+    privilege it is meant to bootstrap.
+    """
+    result = assess(
+        credentials={BOOTSTRAP_BOT: False},
+        shared_with=["admin@example.com"],
+        approve_granted=["admin@example.com"],
+    )
+
+    assert result["remediation"][f"credential:{BOOTSTRAP_BOT}"] == PROVISION_BY_HAND
 
 
 def test_not_shared_and_no_approve_grant_are_distinct_failures() -> None:

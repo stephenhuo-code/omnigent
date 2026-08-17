@@ -241,3 +241,24 @@ E   assert [] != []
 **工具备注**:本轮实现改动改用 Edit 工具落盘——worktree 隔离守卫拒绝了含多行分支的 heredoc 命令。不影响 TDD 纪律,仅记录手段变化。
 
 ---
+
+## Cycle 8 · U6 · 校验只在首个工具调用上执行一次
+
+- **测试**:`tests/policies/pipely/test_preflight.py::test_a_recorded_result_short_circuits_further_assessment`
+- **红**:`uv run pytest tests/policies/pipely/test_preflight.py -k short_circuits -q`
+  首跑为 `TypeError: require_preflight() got an unexpected keyword argument 'probe'` —— 非有效红。
+  加入最小声明(接受 `probe` 但无条件调用)后重跑,取得 `AssertionError: assert ['ran'] == []`。
+- **绿**:已记录 `passed` 标签时直接返回 ALLOW,不再调用探针。9 passed。
+- **重构**:无需重构。
+- **备注**:红是两步取得的——第一步的 `TypeError` 按 playbook 不计作红证据,记录的是加声明后的断言失败。
+
+## Cycle 9 · U7 · 引导 bot 缺失时不提出"尝试创建"
+
+- **测试**:`tests/policies/pipely/test_preflight.py::test_absent_bootstrap_bot_is_remediated_by_hand_not_by_creating_it`
+- **红**:`uv run pytest tests/policies/pipely/test_preflight.py -k bootstrap -q -p no:randomly`
+  → `KeyError: 'credential:om_bootstrap_reader'`
+- **绿**:`assess` 增加 `remediation` 映射,引导 bot 缺失时给出 `provision_by_hand`。9 passed。
+- **重构**:无需重构。
+- **更正**:本轮**第一次写的测试是错的**。我按"凭证运行中失效被具名"来写,那是 U2 的重复(首跑即绿即为信号)。
+  回读 test-list 第 87 行,U7 的真实行为是 FR-076 的引导 bot 不得自建。删除错误测试,按真实行为重写。
+  错误测试从未进入提交。

@@ -54,8 +54,8 @@
 
 - [ ] T013 [P] [U33][U34][U35][U36][U37][U38][U39][A11][A12] 编写 `tests/tools/pipely/test_bot_selfcheck.py`:先落**负向探测**用例——只读 bot 的写探测**未被拒**时,`passed` 必须为 False 且该 bot 进入 `over_privileged`(FR-074、SC-025)
 - [ ] T014 [U33][U34][U35][U36][U37][U38][U39] 实现 `omnigent/tools/pipely/bot_selfcheck.py`,使 T013 转绿;返回结构按 `contracts/tools.md`
-- [ ] T015 [P] [U1][U2][U3][U4][U5][U6][U7] 编写 `tests/policies/pipely/test_preflight.py`:三类失败必须**分别报告**——缺凭证、未共享、已共享但未委派审批权(FR-060、US1 场景 8/9)
-- [ ] T016 [U1][U2][U3][U4][U5][U6][U7] 实现 `omnigent/policies/pipely/preflight.py`,在**首个工具调用**上拦截并写 `pipely.preflight.*` 标签(FR-091;运行时无启动自检钩子)
+- [X] T015 [P] [U1][U2][U3][U4][U5][U6][U7] 编写 `tests/policies/pipely/test_preflight.py`:三类失败必须**分别报告**——缺凭证、未共享、已共享但未委派审批权(FR-060、US1 场景 8/9)
+- [X] T016 [U1][U2][U3][U4][U5][U6][U7] 实现 `omnigent/policies/pipely/preflight.py`,在**首个工具调用**上拦截并写 `pipely.preflight.*` 标签(FR-091;运行时无启动自检钩子)
 - [ ] T017 [P] [U8][U9][U10][U11][U12][U13][U14][U15][U16][U17][U18][U19][U20][U21] 编写 `tests/policies/pipely/test_gates.py`:覆盖越序被拒、一会话一实例、以及**模型自述不写标签**(FR-090、FR-097、FR-099、SC-033)
 - [ ] T018 [U8][U9][U10][U11][U12][U13][U14][U15][U16][U17][U18][U19][U20][U21] 实现 `omnigent/policies/pipely/gates.py`:`bind_flow_instance`、`require_gate`、`record_gate_passage`;标签模型按 `data-model.md`
 - [ ] T019 [P] [U27][U28][U29][U30][U31][U32] 编写 `tests/policies/pipely/test_identity.py`:跨管线写入被拒、沙箱 Domain 外写入被拒(FR-105、SC-040)

@@ -17,6 +17,8 @@ _ALLOW: _Json = {"result": "ALLOW"}
 
 PREFLIGHT_LABEL = "pipely.preflight.status"
 PASSED = "passed"
+BOOTSTRAP_BOT = "om_bootstrap_reader"
+PROVISION_BY_HAND = "provision_by_hand"
 
 
 def assess(
@@ -41,16 +43,28 @@ def assess(
         missing.append("session:not_shared")
     elif not approve_granted:
         missing.append("session:no_approve_grant")
-    return {"passed": not missing, "missing": missing}
+    # The bootstrap bot cannot be self-served: creating it *is* the privilege it
+    # exists to bootstrap. Absent, it is handed back to a human, never created.
+    remediation = {
+        f"credential:{BOOTSTRAP_BOT}": PROVISION_BY_HAND,
+    }
+    return {
+        "passed": not missing,
+        "missing": missing,
+        "remediation": {k: v for k, v in remediation.items() if k in missing},
+    }
 
 
 def require_preflight(
     *,
     deny_reason: str = "Preconditions have not been verified for this session.",
+    probe: Callable[[], _Json] | None = None,
 ) -> Callable[[_Json, _Json], _Json]:
     """Factory: refuse tool calls until preconditions have been verified.
 
     :param deny_reason: Reason text surfaced on a DENY decision.
+    :param probe: Collects the observed preconditions. Injected so the gate
+        stays deterministic in tests.
     :returns: An evaluator ``fn(event, config)`` returning a V0 decision.
     """
 
@@ -62,8 +76,13 @@ def require_preflight(
         :returns: ALLOW / DENY decision dict.
         """
         labels = event.get("context", {}).get("labels") or {}
+        # A recorded result short-circuits: probing again on every tool call
+        # would turn a one-time check into per-call overhead, and could flip
+        # the verdict mid-session on a transient blip.
         if labels.get(PREFLIGHT_LABEL) == PASSED:
             return _ALLOW
+        if probe is not None:
+            probe()
         return {"result": "DENY", "reason": deny_reason}
 
     return _evaluate
