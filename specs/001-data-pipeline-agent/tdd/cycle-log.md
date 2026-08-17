@@ -555,3 +555,60 @@ E   assert [] != []
 
 - 与 U39 后半同类:单元层无法证明真实目录状态未变,只能证明代码里没有写入路径(那已由 U45 覆盖)。
 - 不写一条只能自证的测试来把它标绿。记为 `BLOCKED`,并入集成行为(A 系列)在有真实目录时驱动。
+
+## Cycle 47 · U47 · 全部门禁项优于阈值时通过
+
+- **测试**:`tests/tools/pipely/test_quality_gate.py::test_every_check_comfortably_inside_its_threshold_passes`
+- **红**:`uv run pytest tests/tools/pipely/test_quality_gate.py -q -p no:randomly` → `assert False is True`
+- **绿**:按每项声明的方向(`min` 高者优 / `max` 低者优)比较。46 passed。
+- **重构**:无需重构。
+
+## Cycle 48 · U48 · 恰好等于阈值时通过
+
+- **测试**:`::test_a_value_sitting_exactly_on_its_threshold_passes`
+- **红**:首跑即绿。**故意变异**:两个方向的 `>=`/`<=` 都改成严格不等号 → `assert False is True`。恢复。
+- **绿**:实现未变。这一轮把 `>=` 与 `>` 的区别钉死——单侧测试分辨不出这两者。
+- **重构**:无需重构。
+
+## Cycle 49 · U49 · 劣于阈值一个最小单位时失败
+
+- **测试**:`::test_a_value_one_step_the_wrong_side_of_its_threshold_fails`
+- **红**:首跑即绿。**故意变异**:忽略 `direction`,一律按 `min` 比较 → `assert True is False`。恢复后 48 passed。
+- **绿**:实现未变。
+- **重构**:无需重构。
+
+## Cycle 50 · U50 · 每项返回含实际值与阈值
+
+- **测试**:`::test_each_check_reports_its_actual_value_alongside_its_threshold`
+- **红**:首跑即绿。**故意变异**:结果只保留 `name` 与 `met` → `KeyError: 'actual'`。恢复后 49 passed。
+- **绿**:实现未变。
+- **重构**:无需重构。
+
+## Cycle 51 · U51 · 五类门禁项须齐备
+
+- **测试**:`::test_a_run_missing_any_of_the_five_required_checks_does_not_pass`
+- **红**:`-k five_required_checks` → `assert True is False` —— 四项全过就报绿,缺的那项被静默忽略。
+- **绿**:引入 `REQUIRED_CHECKS`,缺项计入 `absent_checks` 且与失败等权。
+- **连带修复(须记录)**:此改动使 U47/U48 转红,因为它们当初只给了**两项**检查。
+  这**不是需求冲突**:FR-027 一开始就列了五类,是我早先的夹具不完整。
+  加入 `_PASSING_SET` 与 `_full_set(**overrides)`,让每条测试都在完整五项之上只覆盖自己关心的那项。
+  这是**加强**夹具而非削弱断言(Hard Rule 4 允许)。50 passed。
+- **重构**:测试侧夹具重构如上。
+
+## Cycle 52 · U52 · 阈值取自冻结契约而非仓库
+
+- **测试**:`::test_thresholds_come_from_the_frozen_contract_not_from_the_repository`
+- **红**:首跑为 `TypeError: evaluate() got an unexpected keyword argument 'contract'`,**不是有效红**。
+  加入接受 `contract` 但仍用调用方阈值的最小声明后重跑 → `assert True is False`
+  (仓库里的阈值 1 让 2000 条记录轻松过关,正是"被测方自定分数线")。
+- **绿**:契约中出现的项一律以契约阈值覆盖调用方传入值。51 passed。
+- **重构**:无需重构。
+
+## Cycle 53 · U53 · 缺冻结契约判为异常
+
+- **测试**:`::test_a_missing_frozen_contract_is_malformed_not_an_unthresholded_pass`
+- **红**:`-k missing_frozen_contract` → `assert True is False`
+- **绿**:无契约即 `passed=False, malformed=True`,不回落到调用方阈值——回落会原样恢复 U52 刚堵住的洞。
+- **连带修复**:与 Cycle 51 同因,U47–U50 未传 `contract` 而转红。
+  加入 `_contract_for()` 与 `_run()` 辅助,让默认路径带上与检查项一致的契约。同样是补全夹具。52 passed。
+- **重构**:测试侧夹具重构如上。

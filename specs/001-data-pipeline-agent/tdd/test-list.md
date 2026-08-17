@@ -155,13 +155,13 @@ profile 记录的 `acceptance` 是 `uv run pytest tests/e2e_ui`——Playwright 
 
 | id  | behavior | traces | kind | state | test |
 | --- | --- | --- | --- | --- | --- |
-| U47 | 全部门禁项优于阈值时 `passed=true` | FR-027 | example | PENDING | |
-| U48 | 某项**恰好等于**阈值时判通过(边界:等于) | FR-027 | example | PENDING | |
-| U49 | 某项劣于阈值一个最小单位时判失败(边界:刚好未达) | FR-028 | example | PENDING | |
-| U50 | 每一项的返回都含实际值与阈值,不只含判定 | FR-027 | example | PENDING | |
-| U51 | 五类门禁项(记录数、异常率、结构一致性、黄金用例、查询性能)全部出现在返回中 | FR-027 | example | PENDING | |
-| U52 | 阈值取自制品引用中的冻结契约,而非从仓库读取 | FR-101 | example | PENDING | |
-| U53 | 制品引用缺少冻结契约时判为异常,而非按无阈值放行 | FR-101 | example | PENDING | |
+| U47 | 全部门禁项优于阈值时 `passed=true` | FR-027 | example | DONE | `tests/tools/pipely/test_quality_gate.py::test_every_check_comfortably_inside_its_threshold_passes` |
+| U48 | 某项**恰好等于**阈值时判通过(边界:等于) | FR-027 | example | DONE | `tests/tools/pipely/test_quality_gate.py::test_a_value_sitting_exactly_on_its_threshold_passes` |
+| U49 | 某项劣于阈值一个最小单位时判失败(边界:刚好未达) | FR-028 | example | DONE | `tests/tools/pipely/test_quality_gate.py::test_a_value_one_step_the_wrong_side_of_its_threshold_fails` |
+| U50 | 每一项的返回都含实际值与阈值,不只含判定 | FR-027 | example | DONE | `tests/tools/pipely/test_quality_gate.py::test_each_check_reports_its_actual_value_alongside_its_threshold` |
+| U51 | 五类门禁项(记录数、异常率、结构一致性、黄金用例、查询性能)全部出现在返回中 | FR-027 | example | DONE | `tests/tools/pipely/test_quality_gate.py::test_a_run_missing_any_of_the_five_required_checks_does_not_pass` |
+| U52 | 阈值取自制品引用中的冻结契约,而非从仓库读取 | FR-101 | example | DONE | `tests/tools/pipely/test_quality_gate.py::test_thresholds_come_from_the_frozen_contract_not_from_the_repository` |
+| U53 | 制品引用缺少冻结契约时判为异常,而非按无阈值放行 | FR-101 | example | DONE | `tests/tools/pipely/test_quality_gate.py::test_a_missing_frozen_contract_is_malformed_not_an_unthresholded_pass` |
 
 ### `omnigent/tools/pipely/artifact_ref.py`
 
