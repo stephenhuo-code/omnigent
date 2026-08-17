@@ -55,7 +55,7 @@ profile 记录的 `acceptance` 是 `uv run pytest tests/e2e_ui`——Playwright 
 | A31 | 未配置 git 凭证时,公共仓库匿名克隆正常工作 | US3-10, FR-068 | example | PENDING | |
 | A32 | 架构开发 Agent 能从目录读到数据源与落地表的结构与归属,写入正式资产被拒 | US3-11, FR-081, FR-103 | example | PENDING | |
 | A33 | 按制品引用执行管线时,新快照以新版本标识存放,旧快照与旧副本未被改动 | US4-1, FR-026 | example | PENDING | |
-| A34 | 门禁任一项未达阈值时,线上指向不切换,旧版本继续服务,失败项及实际值被报告 | US4-2, FR-028 | example | PENDING | |
+| A34 | 门禁任一项未达阈值时,线上指向不切换,旧版本继续服务,失败项及实际值被报告 | US4-2, FR-028 | example | DONE | `tests/policies/pipely/test_flow_acceptance.py::test_a_failing_quality_check_leaves_the_live_pointer_where_it_is` / `::test_a_passing_quality_check_lets_the_switch_be_requested` —— **本特性第一条端到端链路**:工具 → 策略 → 标签 → 下一次调用 |
 | A35 | 门禁全部通过时,切换作为独立交互式审批送达运维负责人,获批前指向不变 | US4-3, FR-029 | example | PENDING | |
 | A36 | 回滚时线上指向指回上一副本且数据可查,不重建数据、不回退代码 | US4-4, FR-030 | example | PENDING | |
 | A37 | 上线完成后,目录记录的版本、计数、质量、血缘与运行状态与实际部署一致 | US4-5, FR-031 | example | PENDING | |

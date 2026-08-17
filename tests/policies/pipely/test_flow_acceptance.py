@@ -32,11 +32,31 @@ from omnigent.policies.pipely.preflight import assess
 from omnigent.runtime.policies.engine import PolicyEngine
 from omnigent.spec.types import FunctionPolicySpec, FunctionRef, Phase
 from omnigent.tools.pipely.artifact_ref import build
+from omnigent.tools.pipely.quality_gate import evaluate as evaluate_gate
 from omnigent.tools.pipely.verify_governance import verify
 
 CONV_ID = "conv_pipely_flow"
 VERIFY_TOOL = "verify_governance"
 G2 = "g2_passed"
+
+#: The five required checks, each comfortably satisfied. Tests override only the
+#: one they are about, so none passes by leaving a check out.
+_PASSING_CHECKS = {
+    "record_count": (10_000, 5_000, "min"),
+    "anomaly_rate": (0.001, 0.01, "max"),
+    "schema_match": (1.0, 1.0, "min"),
+    "golden_cases": (12, 12, "min"),
+    "query_latency": (0.4, 2.0, "max"),
+}
+
+
+def _full_check_set(**overrides: tuple[float, float, str]) -> list[dict[str, Any]]:
+    """Build all five gate checks, replacing any named in *overrides*."""
+    merged = {**_PASSING_CHECKS, **overrides}
+    return [
+        {"name": name, "actual": actual, "threshold": threshold, "direction": direction}
+        for name, (actual, threshold, direction) in merged.items()
+    ]
 
 
 @dataclass
@@ -348,3 +368,84 @@ def test_release_stays_inside_what_the_artifact_was_verified_to_contain() -> Non
     assert inside["passed"] is True
     assert outside["passed"] is False
     assert "orders_daily_backfill" in outside["reason"]
+
+
+def _release_engine() -> PolicyEngine:
+    """Build an engine carrying BOTH the G3 advance and the G3 gate.
+
+    Two policies on one engine is what the runtime actually has: the result of
+    one call writes the label that the next call is judged against.
+    """
+    advance = FunctionPolicySpec(
+        name="advance_g3_on_quality_gate",
+        on=None,
+        function=FunctionRef(
+            path="omnigent.policies.pipely.gates.advance_on_result",
+            arguments={"tool": "quality_gate", "grants": "g3_passed"},
+        ),
+    )
+    gate = FunctionPolicySpec(
+        name="require_release_gate",
+        on=None,
+        function=FunctionRef(
+            path="omnigent.policies.pipely.gates.require_gate",
+            arguments={"minimum": "g3_passed"},
+        ),
+    )
+    return PolicyEngine(
+        policies=[resolve_function_policy(advance), resolve_function_policy(gate)],
+        label_defs={},
+        ask_timeout=30,
+        conversation_id=CONV_ID,
+        initial_labels={},
+        conversation_store=_Store(),  # type: ignore[arg-type]
+    )
+
+
+def _gate_result_ctx(report: dict[str, Any]) -> Any:
+    """Build the TOOL_RESULT context for a quality-gate run."""
+    from omnigent.policies.types import EvaluationContext
+
+    return EvaluationContext(
+        phase=Phase.TOOL_RESULT,
+        content=json.dumps(report),
+        tool_name="quality_gate",
+    )
+
+
+@pytest.mark.asyncio
+async def test_a_failing_quality_check_leaves_the_live_pointer_where_it_is() -> None:
+    """The whole chain, in the order it really happens: the tool returns a
+    verdict, the verdict decides the label, and the label decides whether the
+    switch is allowed. Each link was proven alone; this proves they connect.
+
+    A failing check must leave the old version serving. Anything else means a
+    pipeline that failed its own thresholds is what users are querying.
+    """
+    engine = _release_engine()
+    checks = _full_check_set(record_count=(4_999, 5_000, "min"))
+    report = evaluate_gate(checks=checks, contract={c["name"]: c["threshold"] for c in checks})
+
+    await engine.evaluate(_gate_result_ctx(report))
+    switch = await engine.evaluate(_tool_call_ctx("switch_live_pointer"))
+
+    assert report["passed"] is False
+    assert engine.labels.get(GATE_LABEL) is None
+    assert switch.action.value == "deny"
+
+
+@pytest.mark.asyncio
+async def test_a_passing_quality_check_lets_the_switch_be_requested() -> None:
+    """The far side of the same chain. Without it, a chain that is broken
+    end-to-end — as the G2 chain was — passes the test above unnoticed.
+    """
+    engine = _release_engine()
+    checks = _full_check_set()
+    report = evaluate_gate(checks=checks, contract={c["name"]: c["threshold"] for c in checks})
+
+    await engine.evaluate(_gate_result_ctx(report))
+    switch = await engine.evaluate(_tool_call_ctx("switch_live_pointer"))
+
+    assert report["passed"] is True
+    assert engine.labels.get(GATE_LABEL) == "g3_passed"
+    assert switch.action.value == "allow"
