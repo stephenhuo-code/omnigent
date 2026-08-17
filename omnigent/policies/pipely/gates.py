@@ -30,6 +30,44 @@ def _rank(gate: str | None) -> int:
         return -1
 
 
+def advance_on_result(*, tool: str, grants: str) -> Callable[[_Json, _Json], _Json]:
+    """Factory: move the gate forward on *tool*'s real return value.
+
+    Bound to the ``tool_result`` phase, so the decision is made from what the
+    tool actually returned rather than from anything the model asserts.
+
+    :param tool: The tool whose result can move the gate.
+    :param grants: The gate a passing result grants.
+    :returns: An evaluator ``fn(event, config)`` returning a V0 decision.
+    """
+
+    def _evaluate(event: _Json, config: _Json) -> _Json:  # noqa: ARG001
+        """Read one tool result and decide whether the gate moves.
+
+        :param event: V0 ``tool_result`` event.
+        :param config: Runtime config dict (unused).
+        :returns: ALLOW decision, with ``set_labels`` when the gate moves.
+        """
+        result = event.get("data", {}).get("result")
+        if not isinstance(result, dict) or "passed" not in result:
+            # No verdict at all is a broken check, not a quiet non-pass: left
+            # unflagged, a tool that stopped reporting would stall the gate
+            # forever with nobody able to see why.
+            return {
+                "result": "ALLOW",
+                "malformed": True,
+                "reason": f"{tool} returned no 'passed' verdict.",
+            }
+        labels = event.get("context", {}).get("labels") or {}
+        # A ratchet: re-running an earlier check must not undo later progress.
+        moves_forward = _rank(grants) > _rank(labels.get(GATE_LABEL))
+        if result["passed"] is True and moves_forward:
+            return {"result": "ALLOW", "set_labels": {GATE_LABEL: grants}}
+        return {"result": "ALLOW"}
+
+    return _evaluate
+
+
 def require_gate(*, minimum: str) -> Callable[[_Json, _Json], _Json]:
     """Factory: refuse tool calls until the session has reached *minimum*.
 

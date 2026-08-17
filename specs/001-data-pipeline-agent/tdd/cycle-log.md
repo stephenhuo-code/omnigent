@@ -300,3 +300,43 @@ E   assert [] != []
 - **红**:`-k names_both` → `AssertionError: assert 'G1' in 'Gate G3 has not been reached.'`
 - **绿**:原因文本改为同时含当前闸门(缺失时为 `none`)与所需闸门。14 passed。
 - **重构**:无需重构;`ruff format` 把 reason 合成一行,已接受并重跑门禁。
+
+## Cycle 15 · U13 · 工具返回 passed=true 时推进闸门
+
+- **测试**:`tests/policies/pipely/test_gate_advance.py::test_a_tool_reporting_a_pass_advances_the_gate`
+- **红**:首次桩里写了 `del event, tool, grants`,删的是闭包变量,得到 `UnboundLocalError` —— **不是有效红**。
+  改为只 `del event` 后重跑 → `KeyError: 'set_labels'`,记录此条为红证据。
+- **绿**:读 `data.result.passed`,为 `True` 时返回 `set_labels`。15 passed。
+- **重构**:无需重构。
+
+## Cycle 16 · U14 · 工具返回 passed=false 时不写标签
+
+- **测试**:`::test_a_tool_reporting_a_failure_leaves_the_gate_where_it_was`
+- **红**:首跑即绿。第一次变异(`is True` → `is not None`)写坏了语法,产生 collection error,**作废不计**。
+  第二次变异 `result.get("passed") is True` → `"passed" in result`,
+  → `AssertionError: assert 'set_labels' not in {'result': 'ALLOW', 'set_labels'...}`。恢复。
+- **绿**:实现未变。
+- **重构**:无需重构。
+
+## Cycle 17 · U15 · 模型自述"已核验"不推进闸门
+
+- **测试**:`::test_a_model_claiming_it_verified_something_moves_no_gate`
+- **红**:首跑即绿。**故意变异**:判定改为 `if "passed" in str(event.get("data", {}))`,即"信任叙述"。
+  → `AssertionError: assert 'set_labels' not in {...}`。恢复。
+- **绿**:实现未变。这一轮确认了 SC-036 想防的失败模式确实会被这条测试挡住。
+- **重构**:无需重构。
+
+## Cycle 18 · U16 · 缺 passed 字段判为异常而非默认通过
+
+- **测试**:`::test_a_result_with_no_verdict_field_is_flagged_rather_than_ignored`
+- **红**:`-k no_verdict` → `KeyError: 'malformed'`
+- **绿**:把"没有裁决"与"裁决为否"分开:前者返回 `malformed: True` 并给出原因。18 passed。
+- **重构**:无需重构。
+
+## Cycle 19 · U17 · 闸门只进不退
+
+- **测试**:`::test_a_lower_gates_result_does_not_pull_the_session_back`
+- **红**:`-k pull_the_session_back` → `AssertionError: assert 'set_labels' not in {'result': 'ALLOW', 'set_labels'...}`
+  (G3 会被 G2 的通过结果拉回。)
+- **绿**:加入棘轮 `_rank(grants) > _rank(已达闸门)` 才写标签。19 passed。
+- **重构**:无需重构。

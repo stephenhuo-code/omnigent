@@ -95,11 +95,11 @@ profile 记录的 `acceptance` 是 `uv run pytest tests/e2e_ui`——Playwright 
 | U10 | 标签已超过所需闸门时放行(边界:大于) | FR-090 | example | DONE | `tests/policies/pipely/test_gates.py::test_a_session_past_the_required_gate_is_still_allowed` |
 | U11 | 标签缺失时拒绝,而非按"未设限"放行 | FR-090 | example | DONE | `tests/policies/pipely/test_gates.py::test_a_session_carrying_no_gate_at_all_is_denied` |
 | U12 | 拒绝时的原因文本指明当前闸门与所需闸门 | FR-090 | example | DONE | `tests/policies/pipely/test_gates.py::test_a_denial_names_both_where_the_session_is_and_where_it_must_be` |
-| U13 | `tool_result` 中工具返回 `passed=true` 时写入下一闸门标签 | FR-097 | example | PENDING | |
-| U14 | `tool_result` 中工具返回 `passed=false` 时不写标签 | FR-097 | example | PENDING | |
-| U15 | 模型在消息中自述"已核验"而无工具结果时不写标签 | FR-097, SC-036 | example | PENDING | |
-| U16 | 工具返回缺少 `passed` 字段时不写标签且判为异常,而非默认通过 | FR-097 | example | PENDING | |
-| U17 | 闸门标签只进不退:已达高闸门时不被低闸门的结果回写 | FR-090 | example | PENDING | |
+| U13 | `tool_result` 中工具返回 `passed=true` 时写入下一闸门标签 | FR-097 | example | DONE | `tests/policies/pipely/test_gate_advance.py::test_a_tool_reporting_a_pass_advances_the_gate` |
+| U14 | `tool_result` 中工具返回 `passed=false` 时不写标签 | FR-097 | example | DONE | `tests/policies/pipely/test_gate_advance.py::test_a_tool_reporting_a_failure_leaves_the_gate_where_it_was` |
+| U15 | 模型在消息中自述"已核验"而无工具结果时不写标签 | FR-097, SC-036 | example | DONE | `tests/policies/pipely/test_gate_advance.py::test_a_model_claiming_it_verified_something_moves_no_gate` |
+| U16 | 工具返回缺少 `passed` 字段时不写标签且判为异常,而非默认通过 | FR-097 | example | DONE | `tests/policies/pipely/test_gate_advance.py::test_a_result_with_no_verdict_field_is_flagged_rather_than_ignored` |
+| U17 | 闸门标签只进不退:已达高闸门时不被低闸门的结果回写 | FR-090 | example | DONE | `tests/policies/pipely/test_gate_advance.py::test_a_lower_gates_result_does_not_pull_the_session_back` |
 | U18 | 首个工具调用写入 `pipely.flow.pipeline` 与 `pipely.flow.kind` | FR-099 | example | PENDING | |
 | U19 | 会话已绑定某管线后,出现不同管线标识时拒绝而非覆盖 | FR-099 | example | PENDING | |
 | U20 | `kind=operation` 的流程实例只校验 G4,不要求 G1–G3 | FR-099 | example | PENDING | |
