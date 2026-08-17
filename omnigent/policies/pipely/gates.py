@@ -6,6 +6,7 @@ the session has reached, so the gate is a scale rather than a flag.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable
 from typing import Any, TypeAlias
 
@@ -114,6 +115,26 @@ def require_flow_gate(*, minimum: str) -> Callable[[_Json, _Json], _Json]:
     return _evaluate
 
 
+def _verdict(data: Any) -> _Json | None:
+    """Return the tool's verdict dict from *data*, whatever form it arrived in.
+
+    The runner passes a raw output string; a hand-built event may carry the
+    dict directly, or wrap it under ``result``.
+
+    :param data: The event's ``data`` field.
+    :returns: The verdict dict, or ``None`` when it cannot be recovered.
+    """
+    if isinstance(data, str):
+        try:
+            data = json.loads(data)
+        except (TypeError, ValueError):
+            return None
+    if not isinstance(data, dict):
+        return None
+    inner = data.get("result")
+    return inner if isinstance(inner, dict) else data
+
+
 def advance_on_result(*, tool: str, grants: str) -> Callable[[_Json, _Json], _Json]:
     """Factory: move the gate forward on *tool*'s real return value.
 
@@ -132,7 +153,13 @@ def advance_on_result(*, tool: str, grants: str) -> Callable[[_Json, _Json], _Js
         :param config: Runtime config dict (unused).
         :returns: ALLOW decision, with ``set_labels`` when the gate moves.
         """
-        result = event.get("data", {}).get("result")
+        # The runner evaluates this phase with ``content`` set to the tool's raw
+        # output STRING (omnigent/runner/policy.py), not to its dict. Reading it
+        # as a dict raised, the engine turned that into DENY, and the gate could
+        # never advance — while the hand-built events in the unit tests passed.
+        if str(event.get("target") or "") not in ("", tool):
+            return {"result": "ALLOW"}
+        result = _verdict(event.get("data"))
         if not isinstance(result, dict) or "passed" not in result:
             # No verdict at all is a broken check, not a quiet non-pass: left
             # unflagged, a tool that stopped reporting would stall the gate

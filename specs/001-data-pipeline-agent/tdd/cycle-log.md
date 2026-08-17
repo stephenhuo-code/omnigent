@@ -750,3 +750,36 @@ E   assert [] != []
   已并入外层行为 A7。不假装已覆盖。
 - **U65 拆成三条测试**:白名单存在、只读 Agent 无写动词、调度器只挂在 operations 上。
   第三条测的是结构性边界——子 Agent 各自解析根目录,别的 Agent 根本够不到调度器。
+
+## Cycle 72 · A18 · 核验未通过时 G2 不开 —— **暴露了防说谎闭环的真实缺陷**
+
+- **测试**:`tests/policies/pipely/test_flow_acceptance.py::test_an_unmet_governance_assertion_leaves_the_g2_gate_shut`
+  与 `::test_a_fully_met_verification_opens_the_g2_gate`
+- **宿主变更(须记录)**:测试清单原本把外层行为放在 `tests/integration/pipely/`。
+  该目录被 `pyproject.toml` 的 `addopts = "--ignore=tests/integration"` 排除,且另需 `--integration`
+  与已安装的 harness CLI。**没人跑的验收测试不是验收测试**,故改落 `tests/policies/pipely/`,在默认套件内。
+
+- **首跑即绿 —— 但是因为崩溃**。按 Phase 3 做故意变异检查:让核验**全部通过**,再看闸门是否打开。
+  探针输出:
+
+  ```
+  report.passed = True
+  decision      = PolicyAction.DENY
+  labels        = {}
+  GATE OPENED   = False
+  ```
+
+  闸门**永远开不了**。那条"未通过则不开"的测试因此什么也没证明——它在机制完全损坏时同样会绿。
+
+- **根因**:`omnigent/runner/policy.py:240` 在 TOOL_RESULT 阶段构造
+  `EvaluationContext(content=output, ...)`,`output` 是工具的**原始输出字符串**。
+  而 `advance_on_result` 写的是 `event["data"]["result"]` —— 对字符串调 `.get` 抛异常,
+  引擎把异常转成 DENY。**U13–U17 五条单测全绿,是因为事件 dict 是我自己手搓的。**
+
+- **红**:补上正向侧后 `uv run pytest tests/policies/pipely/test_flow_acceptance.py -q -p no:randomly`
+  → `AssertionError: assert 'deny' == 'allow'`
+- **绿**:新增 `_verdict()`,按运行时真实形状解析——字符串先 `json.loads`,并支持直接 dict 与
+  `result` 包裹两种形态;同时用 `event["target"]`(工具名的真实位置)确认是本工具的结果。80 passed。
+- **重构**:无需重构。
+- **教训**:单元测试里手搓协作者的输入形状,证明的是逻辑而不是接线。
+  这条外层行为的全部价值就在于它用了**引擎真实传的事件**。
