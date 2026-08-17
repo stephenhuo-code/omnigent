@@ -19,6 +19,31 @@ PREFLIGHT_LABEL = "pipely.preflight.status"
 PASSED = "passed"
 
 
+def assess(
+    *,
+    credentials: dict[str, bool],
+    shared_with: list[str],
+    approve_granted: list[str],
+) -> _Json:
+    """Judge the observed preconditions.
+
+    :param credentials: Credential name to whether it was found.
+    :param shared_with: Users the working session is shared with.
+    :param approve_granted: Users delegated approval authority.
+    :returns: Result with ``passed`` and ``missing``.
+    """
+    missing = [f"credential:{name}" for name, found in credentials.items() if not found]
+    # Two distinct mis-configurations: an unshared session hides the item from
+    # the gatekeeper's inbox, while a shared-but-undelegated one shows it and
+    # refuses the click. They are diagnosed differently, so they are reported
+    # apart rather than folded into one "cannot approve".
+    if not shared_with:
+        missing.append("session:not_shared")
+    elif not approve_granted:
+        missing.append("session:no_approve_grant")
+    return {"passed": not missing, "missing": missing}
+
+
 def require_preflight(
     *,
     deny_reason: str = "Preconditions have not been verified for this session.",

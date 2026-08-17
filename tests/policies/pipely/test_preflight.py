@@ -6,7 +6,7 @@ recorded yet" the decisive case: it must read as *not verified*, never as
 *nothing to enforce*.
 """
 
-from omnigent.policies.pipely.preflight import require_preflight
+from omnigent.policies.pipely.preflight import assess, require_preflight
 
 PREFLIGHT_LABEL = "pipely.preflight.status"
 
@@ -32,3 +32,45 @@ def test_tool_call_is_allowed_once_preflight_is_recorded_as_passed() -> None:
     decision = require_preflight()(_tool_call(labels={PREFLIGHT_LABEL: "passed"}), {})
 
     assert decision["result"] == "ALLOW"
+
+
+def test_one_absent_credential_is_reported_as_exactly_that_one() -> None:
+    """A single gap names that gap and nothing else."""
+    result = assess(
+        credentials={"model_access": True, "code_hosting": False},
+        shared_with=["admin@example.com"],
+        approve_granted=["admin@example.com"],
+    )
+
+    assert result["missing"] == ["credential:code_hosting"]
+
+
+def test_several_absent_credentials_are_all_reported_at_once() -> None:
+    """Every gap is listed in one pass, not just the first one found."""
+    result = assess(
+        credentials={"model_access": False, "code_hosting": False, "om_reader": False},
+        shared_with=["admin@example.com"],
+        approve_granted=["admin@example.com"],
+    )
+
+    assert sorted(result["missing"]) == [
+        "credential:code_hosting",
+        "credential:model_access",
+        "credential:om_reader",
+    ]
+
+
+def test_not_shared_and_no_approve_grant_are_distinct_failures() -> None:
+    """The two mis-configurations are reported apart, not as one."""
+    not_shared = assess(
+        credentials={},
+        shared_with=[],
+        approve_granted=[],
+    )
+    shared_without_grant = assess(
+        credentials={},
+        shared_with=["admin@example.com"],
+        approve_granted=[],
+    )
+
+    assert not_shared["missing"] != shared_without_grant["missing"]

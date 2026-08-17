@@ -167,3 +167,77 @@ E   AssertionError: assert 'DENY' == 'ALLOW'
 **范围说明**:清单中 U4 的措辞含"并写入 `pipely.preflight.status = passed`"。本轮只覆盖了**读取端**(标签为 passed 时放行);**写入端**属 `run_preflight` 求值器,依赖 `bot_selfcheck` 的工具结果,将在 U2/U3/U5 的循环中驱动。此处如实记录,不把未覆盖的部分算作已完成。
 
 ---
+
+## Cycle 5 · U2 · 2026-08-17
+
+**行为**:缺一项凭证时,失败清单恰好含该一项 · **追溯**:FR-060
+
+**测试**:`tests/policies/pipely/test_preflight.py::test_one_absent_credential_is_reported_as_exactly_that_one`
+
+**红**
+
+```
+uv run pytest tests/policies/pipely/test_preflight.py -k "exactly_that_one" -q
+E   AssertionError: assert [] == ['credential:code_hosting']
+1 failed, 2 deselected in 0.06s
+```
+
+首次为 `ModuleNotFoundError`(非有效红,`assess` 尚不存在);加入最小声明后取得上述断言失败。
+
+**绿**:`assess` 按凭证表列出未找到项。**只实现凭证一类**,未提前实现共享与审批权——那是 U5 的行为。
+
+**重构**:无需重构。
+
+---
+
+## Cycle 6 · U3 · 2026-08-17
+
+**行为**:缺多项凭证时,失败清单一次性含全部,不止第一项 · **追溯**:FR-060
+
+**测试**:`tests/policies/pipely/test_preflight.py::test_several_absent_credentials_are_all_reported_at_once`
+
+**红**:首次即通过,执行故意突变检查。
+
+```
+突变:`missing = [...][:1]`(只保留第一项)
+
+uv run pytest tests/policies/pipely/test_preflight.py -k "all_reported_at_once" -q
+E   AssertionError: assert ['credential:model_access'] == ['credential:...al:om...
+1 failed, 3 deselected in 0.07s
+```
+
+突变精确命中 FR-060 要防的失效模式——漏报会让人反复启动、反复才发现下一项。已原样还原并断言无残留。
+
+**绿**:无需新实现;测试固化"一次性列全"这一性质。
+
+**重构**:无需重构。
+
+---
+
+## Cycle 7 · U5 · 2026-08-17
+
+**行为**:"未共享"与"已共享但未委派审批权"产出两种不同的失败标识 · **追溯**:FR-084, FR-085
+
+**测试**:`tests/policies/pipely/test_preflight.py::test_not_shared_and_no_approve_grant_are_distinct_failures`
+
+**红**
+
+```
+uv run pytest tests/policies/pipely/test_preflight.py -k "distinct_failures" -q
+E   assert [] != []
+1 failed, 4 deselected in 0.07s
+```
+
+两种情况当时都产出空清单,无法区分——正是这条行为要消除的。
+
+**绿**:未共享 → `session:not_shared`;已共享但未委派 → `session:no_approve_grant`。二者处置方式不同(前者看不到待办,后者看得到点不动),合并成一种会误导排查。
+
+```
+.specify/memory/pytest-known.sh --compare tests/policies tests/tools -q → No new failures
+```
+
+**重构**:无需重构。
+
+**工具备注**:本轮实现改动改用 Edit 工具落盘——worktree 隔离守卫拒绝了含多行分支的 heredoc 命令。不影响 TDD 纪律,仅记录手段变化。
+
+---
