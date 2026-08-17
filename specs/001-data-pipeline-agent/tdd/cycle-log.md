@@ -412,3 +412,58 @@ E   assert [] != []
 - **重构**:绿灯下做了一次。`ruff` 报 PIE810(两次 `startswith`),
   合并为单个 `_MUTABLE_PREFIXES` 元组并加注释说明"分支会前进、路径只在发送方机器上成立"。
   重构后重跑:27 passed,ruff / pyrefly 全过。
+
+## Cycle 29 · U27 · 运维发布 bot 写本管线资产时放行
+
+- **测试**:`tests/policies/pipely/test_identity.py::test_the_release_bot_may_write_assets_of_its_own_pipeline`
+- **红**:`uv run pytest tests/policies/pipely/test_identity.py -q -p no:randomly` → `AssertionError: assert 'DENY' == 'ALLOW'`
+- **绿**:`check_write` 按 `"<pipeline>."` 前缀判定。28 passed。
+- **重构**:无需重构。
+
+## Cycle 30 · U28 · 运维发布 bot 写其他管线资产时拒绝
+
+- **测试**:`::test_the_release_bot_may_not_write_another_pipelines_assets`
+- **红**:首跑即绿。**故意变异**:去掉作用域判定(`if True`)→ `AssertionError: assert 'ALLOW' == 'DENY'`。恢复。
+- **绿**:实现未变。
+- **重构**:无需重构。
+- **循环中新增行为**:写这一轮时我一并写了"管线名互为前缀"的用例,那是**第二个行为**,
+  违反"一轮一行为"。已把该测试撤出本轮,登记为 **U69** 追加到测试清单,下一轮驱动。
+
+## Cycle 31 · U69 · 管线名互为前缀不得同域(循环中新增)
+
+- **测试**:`::test_a_pipeline_whose_name_merely_starts_the_same_is_not_in_scope`
+- **红**:首跑即绿——驱动 U27 时我已写入 `.` 分隔符,实现本就正确。
+  **故意变异**:`startswith(f"{bound_pipeline}.")` → `startswith(bound_pipeline)`
+  → `AssertionError: assert 'ALLOW' == 'DENY'`。恢复后 30 passed。
+- **绿**:实现未变。本轮的价值全在于把分隔符钉住:此前它只是巧合正确,现在去掉就会红。
+- **重构**:无需重构。
+
+## Cycle 32 · U29 · 架构开发 bot 写沙箱 Domain 内放行
+
+- **测试**:`::test_the_architect_bot_may_write_inside_its_sandbox_domain`
+- **红**:`-k sandbox_domain` → `AssertionError: assert 'DENY' == 'ALLOW'`
+- **绿**:按 bot 角色分派作用域——架构 bot 用 `SANDBOX_DOMAIN`,其余用绑定管线。31 passed。
+- **重构**:无需重构。
+
+## Cycle 33 · U30 · 架构开发 bot 写沙箱外资产时拒绝
+
+- **测试**:`::test_the_architect_bot_may_not_write_governed_assets_outside_the_sandbox`
+- **红**:首跑即绿。**故意变异**:`scope = bound_pipeline`(让架构 bot 也拿到管线作用域)
+  → `AssertionError: assert 'ALLOW' == 'DENY'`。恢复后 32 passed。
+- **绿**:实现未变。
+- **重构**:无需重构。
+
+## Cycle 34 · U31 · 调度凭证不得发起平台级操作
+
+- **测试**:`::test_a_scheduler_credential_cannot_reach_platform_administration`
+- **红**:`-k scheduler_credential` → `AssertionError: assert 'ALLOW' == 'DENY'`
+- **绿**:`check_operation` 用 `PLATFORM_OPERATIONS` 名单拒绝。33 passed。
+- **重构**:无需重构。
+
+## Cycle 35 · U32 · 平台管理凭证出现在环境中即拒绝启动
+
+- **测试**:`::test_a_platform_admin_credential_in_the_environment_refuses_startup`
+- **红**:`-k refuses_startup` → `assert True is False`
+- **绿**:`check_environment` 按 `FORBIDDEN_ENV_NAMES` 判定,断言的是**存在即拒**而非"未被使用"——
+  有 shell 的 Agent 能读到整个进程环境,只有"不出现"才是成立的边界。34 passed。
+- **重构**:无需重构。

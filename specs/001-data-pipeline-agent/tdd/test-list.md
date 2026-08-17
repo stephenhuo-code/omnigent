@@ -119,12 +119,13 @@ profile 记录的 `acceptance` 是 `uv run pytest tests/e2e_ui`——Playwright 
 
 | id  | behavior | traces | kind | state | test |
 | --- | --- | --- | --- | --- | --- |
-| U27 | 运维发布 bot 写本管线资产时放行 | FR-105 | example | PENDING | |
-| U28 | 运维发布 bot 写其他管线资产时拒绝 | FR-105, SC-040 | example | PENDING | |
-| U29 | 架构开发 bot 写沙箱 Domain 内资产时放行 | FR-103 | example | PENDING | |
-| U30 | 架构开发 bot 写沙箱 Domain 外资产时拒绝 | FR-103, SC-038 | example | PENDING | |
-| U31 | 用调度凭证发起目录平台级操作时拒绝 | FR-057 | example | PENDING | |
-| U32 | 任何 Agent 出现平台管理凭证时拒绝启动 | FR-003, FR-063 | example | PENDING | |
+| U27 | 运维发布 bot 写本管线资产时放行 | FR-105 | example | DONE | `tests/policies/pipely/test_identity.py::test_the_release_bot_may_write_assets_of_its_own_pipeline` |
+| U28 | 运维发布 bot 写其他管线资产时拒绝 | FR-105, SC-040 | example | DONE | `tests/policies/pipely/test_identity.py::test_the_release_bot_may_not_write_another_pipelines_assets` |
+| U69 | 管线名互为前缀时不得被判为同一作用域(如 `orders_daily` 与 `orders_daily_archive`) | FR-105, SC-040 | example | DONE | `tests/policies/pipely/test_identity.py::test_a_pipeline_whose_name_merely_starts_the_same_is_not_in_scope`(循环中新增,见 Cycle 30/31) |
+| U29 | 架构开发 bot 写沙箱 Domain 内资产时放行 | FR-103 | example | DONE | `tests/policies/pipely/test_identity.py::test_the_architect_bot_may_write_inside_its_sandbox_domain` |
+| U30 | 架构开发 bot 写沙箱 Domain 外资产时拒绝 | FR-103, SC-038 | example | DONE | `tests/policies/pipely/test_identity.py::test_the_architect_bot_may_not_write_governed_assets_outside_the_sandbox` |
+| U31 | 用调度凭证发起目录平台级操作时拒绝 | FR-057 | example | DONE | `tests/policies/pipely/test_identity.py::test_a_scheduler_credential_cannot_reach_platform_administration` |
+| U32 | 任何 Agent 出现平台管理凭证时拒绝启动 | FR-003, FR-063 | example | DONE | `tests/policies/pipely/test_identity.py::test_a_platform_admin_credential_in_the_environment_refuses_startup` |
 
 ### `omnigent/tools/pipely/bot_selfcheck.py`
 
