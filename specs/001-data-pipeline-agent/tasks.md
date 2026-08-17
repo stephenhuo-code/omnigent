@@ -62,7 +62,7 @@
 - [X] T020 [U27][U28][U29][U30][U31][U32] 实现 `omnigent/policies/pipely/identity.py`
 - [ ] T021 [A5][A6] 在编排者与各子 Agent 的 `guardrails.policies` 中挂载上述策略,按 `contracts/policies.md` 配置 `on` 与 `condition`
 
-- [ ] T085 [P] [U61][U62][U63][U64][U65][U66][U67][U68] 编写 `tests/policies/pipely/test_agent_declarations.py`:断言三个无 shell 子 Agent 的定义**不含** `os_env`、共享档为具名用户而非匿名公开、`ask_timeout` 覆盖天级、各 MCP 工具白名单无越权、**平台管理凭证不出现在任何 Agent 配置中**
+- [X] T085 [P] [U61][U62][U63][U64][U65][U66][U67][U68] 编写 `tests/policies/pipely/test_agent_declarations.py`:断言三个无 shell 子 Agent 的定义**不含** `os_env`、共享档为具名用户而非匿名公开、`ask_timeout` 覆盖天级、各 MCP 工具白名单无越权、**平台管理凭证不出现在任何 Agent 配置中**
 
 **Checkpoint**: 前置校验、闸门状态机、凭证边界三道硬强制就位,可以开始故事。
 

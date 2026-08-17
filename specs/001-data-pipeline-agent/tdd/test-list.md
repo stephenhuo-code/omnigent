@@ -187,14 +187,14 @@ profile 记录的 `acceptance` 是 `uv run pytest tests/e2e_ui`——Playwright 
 
 | id  | behavior | traces | kind | state | test |
 | --- | --- | --- | --- | --- | --- |
-| U61 | 治理审计、运维发布、服务验证三个子 Agent 的定义中**不含** `os_env` | FR-025, FR-095 | contract | PENDING | |
-| U62 | 架构开发子 Agent 的定义中含 `os_env` 且挂载了工作区守卫与爆炸半径策略 | FR-042, FR-043 | contract | PENDING | |
-| U63 | 编排者定义中 `agent_session_sharing` 为具名用户档,**不是**匿名公开档 | FR-084 | contract | PENDING | |
-| U64 | `ask_timeout` 的取值足以覆盖天级等待 | FR-052 | contract | PENDING | |
-| U65 | 各 MCP 声明的工具白名单与该 Agent 职责一致,无越权工具 | FR-098, SC-037 | contract | PENDING | |
-| U66 | 平台管理凭证未出现在任何 Agent 的环境或工具配置中 | FR-063, SC-002 | contract | PENDING | |
-| U67 | 架构开发 Agent 的进程环境凭证项恰为模型访问与代码托管两项 | FR-062, SC-022 | contract | PENDING | |
-| U68 | 变更请求操作凭证与 git 克隆推送凭证是两个独立配置项 | FR-080 | contract | PENDING | |
+| U61 | 治理审计、运维发布、服务验证三个子 Agent 的定义中**不含** `os_env` | FR-025, FR-095 | contract | DONE | `tests/policies/pipely/test_agent_declarations.py::test_the_no_shell_sub_agents_declare_no_os_env`(三例参数化) |
+| U62 | 架构开发子 Agent 的定义中含 `os_env` 且挂载了工作区守卫与爆炸半径策略 | FR-042, FR-043 | contract | DONE | `tests/policies/pipely/test_agent_declarations.py::test_the_architect_has_a_shell_and_a_guard_on_it` |
+| U63 | 编排者定义中 `agent_session_sharing` 为具名用户档,**不是**匿名公开档 | FR-084 | contract | DONE | `tests/policies/pipely/test_agent_declarations.py::test_the_orchestrator_shares_to_named_users_not_to_anyone` |
+| U64 | `ask_timeout` 的取值足以覆盖天级等待 | FR-052 | contract | DONE | `tests/policies/pipely/test_agent_declarations.py::test_the_approval_window_outlives_a_human_stepping_away` |
+| U65 | 各 MCP 声明的工具白名单与该 Agent 职责一致,无越权工具 | FR-098, SC-037 | contract | DONE | `tests/policies/pipely/test_agent_declarations.py::test_every_catalog_connection_declares_an_allow_list` / `::test_the_read_only_agents_are_given_no_write_verb` / `::test_only_operations_can_reach_the_scheduler` |
+| U66 | 平台管理凭证未出现在任何 Agent 的环境或工具配置中 | FR-063, SC-002 | contract | DONE | `tests/policies/pipely/test_agent_declarations.py::test_no_agent_is_handed_a_platform_admin_credential` |
+| U67 | 架构开发 Agent 的进程环境凭证项恰为模型访问与代码托管两项 | FR-062, SC-022 | contract | DONE | `tests/policies/pipely/test_agent_declarations.py::test_the_environment_template_offers_no_platform_admin_credential`(**部分**:模板侧已钉住;"进程环境恰为两项"需运行时观测,见 A7) |
+| U68 | 变更请求操作凭证与 git 克隆推送凭证是两个独立配置项 | FR-080 | contract | DONE | `tests/policies/pipely/test_agent_declarations.py::test_the_change_request_and_git_credentials_are_separate_entries` |
 
 ## Invariants and edge cases still to place
 

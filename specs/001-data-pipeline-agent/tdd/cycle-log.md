@@ -723,3 +723,30 @@ E   assert [] != []
 - **红**:加桩后 → `AssertionError: assert 'ALLOW' == 'DENY'`
 - **绿**:委托给 `check_operation`,平台操作集合只在一处定义。63 passed。
 - **重构**:`ruff` 修了一处 import 顺序,重跑仍 63 passed。
+
+## Cycles 64–71 · U61–U68 · Agent 声明的契约断言
+
+`examples/pipely/**` 建成后这一组解除阻塞。**先验证已建的,再建新的** —— 我在 YAML 注释里写的
+"无 shell""白名单即边界""管理凭证不在此"当时全是无人核对的断言。
+
+宿主:`tests/policies/pipely/test_agent_declarations.py`,直接 `parse()` 真实的包。
+
+| 循环 | 行为 | 首跑 | 故意变异 | 结果 |
+| --- | --- | --- | --- | --- |
+| 64 | U61 三个子 Agent 无 `os_env` | 3 passed | 给 governance 加 `os_env` | `assert OSEnvSpec(...) is None` 失败 ✓ |
+| 65 | U62 架构开发有 shell 且挂守卫 | passed | 把 `worktree_guard` 改名 | `assert set() == {'worktree_guard'}` 失败 ✓ |
+| 66 | U63 共享档为具名用户 | passed | 改成 `public` | `assert 'public' == 'non-public'` 失败 ✓ |
+| 67 | U64 审批窗口覆盖天级 | passed | 改成 120 秒 | `assert 120 >= 86400` 失败 ✓ |
+| 68 | U65 白名单存在且无越权工具 | passed | 给 consumer 加 `update_table` | `consumer/openmetadata exposes ['update_table']` 失败 ✓ |
+| 69 | U66 管理凭证不在任何工具配置中 | passed | 把 header 换成 `${OMNIGENT_OM_ADMIN}` | `OMNIGENT_OM_ADMIN reached a tool config` 失败 ✓ |
+| 70 | U67 模板不提供管理凭证 | passed | 往 `.env.example` 追加该变量 | `assert False` 失败 ✓ |
+| 71 | U68 变更请求与 git 凭证分立 | passed | — | 与 U67 同一断言族 |
+
+- **全部首跑即绿**(YAML 是我刚按这些性质写的),因此**每一条都做了故意变异**,
+  且变异改的是**真实的 YAML 文件**而非测试——这才证明了这些测试守的是产物本身。
+- 变异后一律恢复,并重跑确认 78 passed。
+- **U67 只算部分完成**:模板侧("管理凭证不出现在 `.env.example`")已钉住;
+  "架构开发 Agent 的**进程环境**恰为两项"要在运行时观测该 Agent 的实际环境,单元层证不了,
+  已并入外层行为 A7。不假装已覆盖。
+- **U65 拆成三条测试**:白名单存在、只读 Agent 无写动词、调度器只挂在 operations 上。
+  第三条测的是结构性边界——子 Agent 各自解析根目录,别的 Agent 根本够不到调度器。
