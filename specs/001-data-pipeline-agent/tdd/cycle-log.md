@@ -506,3 +506,52 @@ E   assert [] != []
   现在这条测试钉住的是**声明**——新增一个会落盘的探测必须显式写 `persists: True`,那一刻测试就红。
   但"调用前后目录状态确实无变化"在单元层证不了,需要真实目录。
   故 U39 记为 **DONE(部分)**,状态一致性那半并入集成行为(A 系列),不假装已覆盖。
+
+## Cycle 41 · U40 · 全部断言满足时判通过
+
+- **测试**:`tests/tools/pipely/test_verify_governance.py::test_all_assertions_met_reports_a_pass_with_nothing_outstanding`
+- **红**:`uv run pytest tests/tools/pipely/test_verify_governance.py -q -p no:randomly` → `assert False is True`
+- **绿**:比较 `actual` 与 `expected`。40 passed。
+- **重构**:无需重构。
+
+## Cycle 42 · U41 · 不满足时含期望值与实际值
+
+- **测试**:`::test_an_unmet_assertion_reports_both_the_expected_and_the_found_value`
+- **红**:`-k expected_and_the_found` → `KeyError: 'met'`
+- **绿**:每项结果带 `met` 并透传两个值。41 passed。
+- **重构**:无需重构。
+
+## Cycle 43 · U42 · 给出需补做的具体步骤
+
+- **测试**:`::test_an_unmet_assertion_yields_the_step_that_would_satisfy_it`
+- **红**:`-k would_satisfy_it` → `assert 0 == 2`
+- **绿**:每条未满足断言产出一条具名步骤。42 passed。
+- **重构**:无需重构。
+
+## Cycle 44 · U43 · 重复调用结果一致
+
+- **测试**:`::test_verifying_the_same_assertions_twice_gives_the_same_answer`
+- **红**:首跑即绿。**故意变异**:引入调用计数,第二次调用清空未满足项
+  → `AssertionError: assert {...} == {...}`。恢复后 43 passed。
+- **绿**:实现未变。
+- **重构**:无需重构。
+
+## Cycle 45 · U45 · 工具不具备写能力
+
+- **测试**:`::test_the_tool_exposes_no_way_to_write_to_the_catalog`
+- **红**:首跑即绿。**故意变异**:在模块中加入 `create_domain`
+  → `AssertionError: create_domain`。恢复后 44 passed。
+- **绿**:实现未变。这条是结构性守卫:日后谁在该模块加写函数,立刻红并指名。
+- **重构**:无需重构。
+
+## Cycle 46 · U46 · 空断言集判为异常而非恒真
+
+- **测试**:`::test_an_empty_assertion_set_is_malformed_input_not_a_vacuous_pass`
+- **红**:`-k vacuous_pass` → `assert True is False` —— 空集确实被 `not []` 判成了通过。
+- **绿**:空断言集返回 `passed=False, malformed=True` 并给出补救步骤。45 passed。
+- **重构**:无需重构。
+
+## U44 · 调用前后目录状态无变化 —— 判定为 BLOCKED
+
+- 与 U39 后半同类:单元层无法证明真实目录状态未变,只能证明代码里没有写入路径(那已由 U45 覆盖)。
+- 不写一条只能自证的测试来把它标绿。记为 `BLOCKED`,并入集成行为(A 系列)在有真实目录时驱动。

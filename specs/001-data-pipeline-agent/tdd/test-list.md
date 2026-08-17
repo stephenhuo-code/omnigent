@@ -143,13 +143,13 @@ profile 记录的 `acceptance` 是 `uv run pytest tests/e2e_ui`——Playwright 
 
 | id  | behavior | traces | kind | state | test |
 | --- | --- | --- | --- | --- | --- |
-| U40 | 全部断言满足时 `passed=true`,`missing_steps` 为空 | FR-017 | example | PENDING | |
-| U41 | 任一断言不满足时 `passed=false`,该项含期望值与实际值 | FR-017, FR-018 | example | PENDING | |
-| U42 | 不满足时 `missing_steps` 给出需补做的具体步骤,而非仅"不通过" | FR-018 | example | PENDING | |
-| U43 | 重复调用返回一致结果 | FR-019 | example | PENDING | |
-| U44 | 调用前后目录状态无变化(无副作用) | FR-019 | example | PENDING | |
-| U45 | 该工具的任何写入尝试被拒——凭证与工具集不具备写能力 | FR-011 | example | PENDING | |
-| U46 | 断言集为空时判为异常输入,而非空集恒真 | FR-017 | example | PENDING | |
+| U40 | 全部断言满足时 `passed=true`,`missing_steps` 为空 | FR-017 | example | DONE | `tests/tools/pipely/test_verify_governance.py::test_all_assertions_met_reports_a_pass_with_nothing_outstanding` |
+| U41 | 任一断言不满足时 `passed=false`,该项含期望值与实际值 | FR-017, FR-018 | example | DONE | `tests/tools/pipely/test_verify_governance.py::test_an_unmet_assertion_reports_both_the_expected_and_the_found_value` |
+| U42 | 不满足时 `missing_steps` 给出需补做的具体步骤,而非仅"不通过" | FR-018 | example | DONE | `tests/tools/pipely/test_verify_governance.py::test_an_unmet_assertion_yields_the_step_that_would_satisfy_it` |
+| U43 | 重复调用返回一致结果 | FR-019 | example | DONE | `tests/tools/pipely/test_verify_governance.py::test_verifying_the_same_assertions_twice_gives_the_same_answer` |
+| U44 | 调用前后目录状态无变化(无副作用) | FR-019 | example | BLOCKED | 需真实目录,单元层证不了;与 U39 后半一并归入集成行为(A 系列) |
+| U45 | 该工具的任何写入尝试被拒——凭证与工具集不具备写能力 | FR-011 | example | DONE | `tests/tools/pipely/test_verify_governance.py::test_the_tool_exposes_no_way_to_write_to_the_catalog` |
+| U46 | 断言集为空时判为异常输入,而非空集恒真 | FR-017 | example | DONE | `tests/tools/pipely/test_verify_governance.py::test_an_empty_assertion_set_is_malformed_input_not_a_vacuous_pass` |
 
 ### `omnigent/tools/pipely/quality_gate.py`
 
