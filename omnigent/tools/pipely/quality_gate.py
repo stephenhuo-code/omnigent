@@ -2,6 +2,10 @@
 
 The tool whose real return value moves the G2 gate. Thresholds run in both
 directions, so each check declares which way it is read.
+
+Carries FR-027 (all five checks, each reporting its actual value beside
+its threshold), FR-028 (a failing check holds the live pointer), and
+FR-101 (thresholds come from the frozen contract, never the checkout).
 """
 
 from __future__ import annotations

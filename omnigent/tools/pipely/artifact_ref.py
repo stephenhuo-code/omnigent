@@ -3,6 +3,10 @@
 What a handoff carries and what the quality gate grades against. Everything in
 it is immutable by construction, so the receiver fetches what the sender
 verified rather than whatever the branch has become since.
+
+Carries FR-023 (no writable source location crosses a handoff), FR-101
+(thresholds and assertions are frozen alongside the version), and FR-102
+(a frozen reference is not editable — changes go to a new version).
 """
 
 from __future__ import annotations

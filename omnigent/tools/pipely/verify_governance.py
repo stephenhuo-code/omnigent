@@ -3,6 +3,11 @@
 Read-only by construction: this tool checks that the platform administrator's
 manual work actually landed, and reports what is still outstanding. It never
 performs the governance operation itself.
+
+Carries FR-011 (read-only by construction), FR-017 (every assertion is
+checked against what the catalog reports), FR-018 (an unmet assertion
+yields the step that would satisfy it), and FR-019 (repeatable, no side
+effects).
 """
 
 from __future__ import annotations

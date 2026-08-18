@@ -3,6 +3,10 @@
 A read-only bot whose write probe was not refused has silently lost its
 boundary. Proving the token *works* is not the check; proving the write is
 *refused* is.
+
+Carries FR-074 (the boundary is proven by a refused write probe, not by a
+working token) and FR-075 (permissions wider or narrower than the role
+are both reported, naming the specific grants).
 """
 
 from __future__ import annotations

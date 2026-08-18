@@ -2,6 +2,9 @@
 
 Only immutable references may cross a handoff, so that what the receiver
 fetches is what the sender verified.
+
+Carries FR-023 (only immutable references cross a handoff) and FR-056
+(a release deploys only what the handed-over artifact contains).
 """
 
 from __future__ import annotations

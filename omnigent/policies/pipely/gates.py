@@ -2,6 +2,12 @@
 
 Work moves through four ordered gates. A tool call is judged against the gate
 the session has reached, so the gate is a scale rather than a flag.
+
+Carries FR-045 (a human merges; no agent advances the release gate),
+FR-090 (the gate is an ordered, ratcheting scale), FR-097 (a gate moves on
+a tool's real return value, never on a model's claim), FR-099 (one session
+carries one flow instance), and FR-107 (the quality verdict is recorded
+apart from the gate).
 """
 
 from __future__ import annotations

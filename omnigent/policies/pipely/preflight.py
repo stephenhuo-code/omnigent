@@ -4,6 +4,10 @@ The runtime has no agent-startup hook, so the only place a precondition check
 can be made binding is a policy on the first tool call. An absent result must
 therefore read as *not verified* — treating it as *nothing to enforce* would
 let every unconfigured deployment straight through.
+
+Carries FR-060 (report every gap in one pass), FR-076 (the bootstrap bot
+is provisioned by hand), and FR-091 (the first tool call is the only place
+a precondition check can be made binding — the runtime has no startup hook).
 """
 
 from __future__ import annotations

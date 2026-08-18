@@ -3,6 +3,10 @@
 Writes a released pipeline's facts back to the catalog, where operators look
 when something is wrong. The catalog is injected so the sync stays testable
 without one.
+
+Carries FR-031 (the catalog records version, counts, quality, lineage and
+run state), FR-033 (a retried sync lands on the same record), and FR-059
+(a catalog outage is reported apart from a scheduler outage).
 """
 
 from __future__ import annotations
@@ -33,6 +37,14 @@ def sync(*, catalog: Catalog, pipeline: str, facts: dict[str, Any]) -> dict[str,
     key = f"{pipeline}@{facts['version']}"
     try:
         catalog.upsert(key, facts)
-    except ConnectionError as exc:
-        return {"synced": False, "unreachable": "catalog", "reason": str(exc)}
+    except ConnectionError:
+        # Deliberately NOT str(exc): clients routinely put the request URL —
+        # token and all — into the exception text, and this report reaches the
+        # catalog and the operator's console. Say what could not be reached,
+        # never what it was reached with.
+        return {
+            "synced": False,
+            "unreachable": "catalog",
+            "reason": "The catalog could not be reached.",
+        }
     return {"synced": True}

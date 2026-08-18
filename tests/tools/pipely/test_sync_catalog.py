@@ -71,3 +71,23 @@ def test_syncing_the_same_release_twice_leaves_one_record() -> None:
     sync(catalog=catalog, pipeline="orders_daily", facts=FACTS)
 
     assert len(catalog.records) == 1
+
+
+def test_a_failure_report_does_not_carry_the_credential_that_failed() -> None:
+    """An outage message is written by the system that failed, not by us.
+
+    Clients routinely put the request URL — token and all — into the exception
+    text, and this report goes into the catalog and the operator's console. The
+    reason must say what could not be reached, never what it was reached with.
+    """
+    token = "om_bot_tok_S3CRET"
+
+    class _LeakyCatalog:
+        def upsert(self, key: str, facts: dict[str, object]) -> None:
+            raise ConnectionError(f"GET https://om.example/api?token={token} refused")
+
+    result = sync(catalog=_LeakyCatalog(), pipeline="orders_daily", facts=FACTS)
+
+    assert result["synced"] is False
+    assert result["unreachable"] == "catalog"
+    assert token not in str(result)

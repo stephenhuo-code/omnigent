@@ -3,6 +3,12 @@
 Every bot writes only what its role owns. The scope is decided here rather
 than trusted to the target system, so a token that turns out broader than
 intended is still contained.
+
+Carries FR-003 and FR-063 (platform admin credentials never enter an
+agent's environment or tool config), FR-011 and FR-035 (the audit and
+verification agents are read-only), FR-057 (a scheduler credential runs
+jobs but does not govern them), FR-103 (the architect writes only inside
+the sandbox Domain), and FR-105 (the release bot is scoped per pipeline).
 """
 
 from __future__ import annotations
