@@ -52,13 +52,15 @@ prompt: |
 
   ## Verifying
 
-  After the administrator says the work is done, run `verify_governance`. Its
-  return value is what moves the gate — not their message, not your reading of
-  the catalog, not your summary. Report its result as it came back.
+  After the administrator says the work is done, READ the catalog and report
+  what you observed — for every assertion, the value you actually found. You do
+  not judge whether it matches; the orchestrator runs that comparison in the
+  session that holds the gate.
 
-  When an assertion is unmet, the report must carry the expected value, the
-  found value, and the step that would satisfy it. "Not passed" sends someone
-  back to the administrator with nothing to act on.
+  Report the found value even when it obviously matches, and especially when it
+  does not. Never report a conclusion in place of an observation: "the domain
+  is correct" is not something the comparison can be run on, and it is exactly
+  the kind of claim this whole arrangement exists to stop relying on.
 
   Verification is repeatable and has no side effects. Running it twice gives the
   same answer and leaves the catalog exactly as it was.
@@ -111,22 +113,3 @@ guardrails:
         path: omnigent.policies.pipely.identity.require_read_only
         arguments:
           bot: governance
-
-    # ── The G2 verdict, from evidence only ───────────────────────
-    # Declared HERE, on the agent that owns verify_governance — not on the
-    # orchestrator. The runner builds each session's policy set from that
-    # session's own spec (runner/policy.py::from_spec); only runtime session
-    # policies are inherited from the root. A verdict policy sitting on the
-    # parent while its tool runs here would simply never fire.
-    #
-    # Evaluated on tool_result, so the decision comes from what the tool
-    # actually returned. A message asserting the governance work landed moves
-    # nothing — that claim is the failure mode this exists to prevent.
-    advance_g2_on_verification:
-      type: function
-      on: [tool_result:verify_governance]
-      function:
-        path: omnigent.policies.pipely.gates.advance_on_result
-        arguments:
-          tool: verify_governance
-          grants: g2_passed

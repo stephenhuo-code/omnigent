@@ -8,6 +8,7 @@ and "past the gate" pass the same single test.
 from omnigent.policies.pipely.gates import (
     GATE_LABEL,
     QUALITY_LABEL,
+    require_flow_gate,
     require_gate,
     require_release,
 )
@@ -93,3 +94,70 @@ def test_the_switch_needs_both_release_readiness_and_this_runs_quality() -> None
     assert ready_but_bad["result"] == "DENY"
     assert good_but_not_ready["result"] == "DENY"
     assert both["result"] == "ALLOW"
+
+
+def _dispatch(phase: str, gate: str | None, quality: str | None) -> dict[str, object]:
+    """Build a sub-agent dispatch for *phase* with the given session state."""
+    labels: dict[str, str] = {}
+    if gate is not None:
+        labels[GATE_LABEL] = gate
+    if quality is not None:
+        labels[QUALITY_LABEL] = quality
+    return {
+        "type": "tool_call",
+        "data": {"name": "sys_session_send", "arguments": {"phase": phase}},
+        "context": {"labels": labels},
+    }
+
+
+def test_only_the_switch_dispatch_is_held_to_the_release_conditions() -> None:
+    """The orchestrator dispatches every phase through one tool, so the guard
+    has to tell them apart — by the argument it was called with, never by the
+    wording of the task. Gating every dispatch alike would stop phase 1 dead.
+    """
+    evaluate = require_release(applies_to_phase="switch")
+
+    early_work = evaluate(_dispatch("plan", gate=None, quality=None), {})
+    premature_switch = evaluate(_dispatch("switch", gate=G3, quality=None), {})
+    ready_switch = evaluate(_dispatch("switch", gate=G3, quality="passed"), {})
+
+    assert early_work["result"] == "ALLOW"
+    assert premature_switch["result"] == "DENY"
+    assert ready_switch["result"] == "ALLOW"
+
+
+def test_only_the_release_dispatch_is_held_to_the_release_gate() -> None:
+    """Release work must not be dispatched before a human merged the change
+    request. Earlier phases are how the flow reaches that point at all, so
+    gating them on the same value would deadlock the whole thing.
+    """
+    evaluate = require_flow_gate(minimum=G3, applies_to_phase="release")
+
+    planning = evaluate(
+        {
+            "type": "tool_call",
+            "data": {"name": "sys_session_send", "arguments": {"phase": "plan"}},
+            "context": {"labels": {}},
+        },
+        {},
+    )
+    premature_release = evaluate(
+        {
+            "type": "tool_call",
+            "data": {"name": "sys_session_send", "arguments": {"phase": "release"}},
+            "context": {"labels": {GATE_LABEL: G2}},
+        },
+        {},
+    )
+    ready_release = evaluate(
+        {
+            "type": "tool_call",
+            "data": {"name": "sys_session_send", "arguments": {"phase": "release"}},
+            "context": {"labels": {GATE_LABEL: G3}},
+        },
+        {},
+    )
+
+    assert planning["result"] == "ALLOW"
+    assert premature_release["result"] == "DENY"
+    assert ready_release["result"] == "ALLOW"

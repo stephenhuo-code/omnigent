@@ -219,3 +219,60 @@ def test_every_verdict_policy_lives_on_the_agent_that_owns_its_tool(spec: AgentS
                 misplaced.append(f"{agent.name}/{policy.name} watches {watched} owned by {owner}")
 
     assert misplaced == [], "these verdict policies will never fire: " + "; ".join(misplaced)
+
+
+def test_the_verdict_tools_belong_to_the_agent_that_holds_the_gates(spec: AgentSpec) -> None:
+    """Gate state lives in one session, so the verdict must be produced there.
+
+    Labels are per-conversation and a sub-agent does not inherit them
+    (runtime/policies/builder.py). A verdict produced inside a sub-agent lands
+    on a label space nobody else can read, so the orchestrator — the only agent
+    that sees the whole flow — runs the deterministic comparison itself.
+
+    The sub-agents still read the catalog with their own scoped credentials and
+    report what they observed; what they do not do is decide.
+    """
+    verdict_tools = {"verify_governance", "quality_gate"}
+
+    misplaced = {
+        f"{agent.name}/{tool.name}"
+        for agent in spec.sub_agents
+        for tool in agent.local_tools
+        if tool.name in verdict_tools
+    }
+    held_by_orchestrator = {t.name for t in spec.local_tools} & verdict_tools
+
+    assert misplaced == set(), f"a verdict decided in a sub-agent is unreadable: {misplaced}"
+    assert held_by_orchestrator == verdict_tools
+
+
+#: Policy factories whose decision is read from session labels. A label-reading
+#: policy only works in the session that holds those labels.
+LABEL_READING_POLICIES = (
+    "gates.require_gate",
+    "gates.require_flow_gate",
+    "gates.require_release",
+    "preflight.require_preflight",
+)
+
+
+def test_no_sub_agent_gates_on_labels_it_can_never_see(spec: AgentSpec) -> None:
+    """A label-reading policy on a sub-agent is not a gate — it is a wall.
+
+    Sub-agents get their own conversation and do not inherit labels, so such a
+    policy reads an empty label space and denies every call. That fails closed,
+    which is safe and useless: the agent can never do its job, and the failure
+    looks like a permissions bug rather than a design one.
+
+    Under the orchestrator-holds-the-gates design, flow state is judged where
+    it lives — the orchestrator gates what it dispatches, and a sub-agent keeps
+    only the guards that need no flow state (credential scope, read-only).
+    """
+    stranded: list[str] = []
+    for agent in spec.sub_agents:
+        for policy in agent.guardrails.policies or []:
+            path = getattr(getattr(policy, "function", None), "path", "") or ""
+            if any(path.endswith(reader) for reader in LABEL_READING_POLICIES):
+                stranded.append(f"{agent.name}/{policy.name}")
+
+    assert stranded == [], f"these read labels their session never has: {stranded}"

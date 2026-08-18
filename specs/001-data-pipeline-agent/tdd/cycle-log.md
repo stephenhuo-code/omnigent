@@ -970,3 +970,66 @@ E   assert [] != []
 
 **受影响的已完成条目**:A34 的链路测试仍有效(它在**单一会话**内证明了工具→策略→标签→下一次调用),
 但它不证明跨 Agent 的闸门流转。已在本条目中写明,不留隐性错误。
+
+
+## 裁决 · 方案 (b) 落地 · 闸门由编排者持有
+
+用户选择:**跨 Agent 闸门由编排者持有;子 Agent 只返回观测,编排者在自己会话里推进。**
+
+契约先改:`data-model.md` 新增"标签存放在编排者的会话上"一节,写明职责划分与派发必带 `phase` 参数。
+
+### Cycle 84 · U74 · 裁决工具归编排者所有
+
+- **测试**:`test_agent_declarations.py::test_the_verdict_tools_belong_to_the_agent_that_holds_the_gates`
+- **红**:`AssertionError: a verdict decided in a sub-agent is unreadable: {'operations/quality_gate', 'governance/verify_governance'}`
+- **绿**:两个裁决工具移到 `examples/pipely/tools/python/`(编排者)。
+  它们是**纯函数**——只比较传入的观测值与期望值,不需要任何凭证,所以放在无 shell 的编排者上没有障碍。
+  `bot_selfcheck` 留在 governance(检的是它自己的 bot),`sync_catalog` 留在 operations(用它的凭证写目录)。
+- **随之**:两条 `advance_on_result` 策略移回编排者——现在是**正确的**,因为工具在这里了。
+
+### Cycle 85 · U76 · 只有切换派发受发布条件约束
+
+- **测试**:`test_gates.py::test_only_the_switch_dispatch_is_held_to_the_release_conditions`
+- **红**:首跑 `TypeError`(参数不存在),**不是有效红**;加最小声明后 → `AssertionError: assert 'DENY' == 'ALLOW'`
+  (phase=plan 的早期派发被误拦)。
+- **绿**:`require_release` 增加 `applies_to_phase`,按**派发参数**判定。
+  刻意不按任务描述的措辞判定——措辞由模型自己写,参数不是。
+
+### Cycle 86 · U77 · 只有发布派发受 G3 约束
+
+- **测试**:`test_gates.py::test_only_the_release_dispatch_is_held_to_the_release_gate`
+- **红**:同上两步,最终 `AssertionError: assert 'DENY' == 'ALLOW'`
+- **绿**:`require_flow_gate` 同样增加 `applies_to_phase`。
+  早期阶段正是流程抵达被守闸门的途径,一并拦住会**死锁整个流程**。
+
+### Cycle 87 · U75 · 子 Agent 不得读它永远看不到的标签
+
+- **测试**:`test_agent_declarations.py::test_no_sub_agent_gates_on_labels_it_can_never_see`
+- **红**:`AssertionError: these read labels their session never has: ['operations/require_release_gate', ...]`
+- **绿**:两条流程闸门从 operations 移到编排者,按 `phase` 键控派发。
+  operations 只保留**不依赖流程状态**的守卫(凭证作用域)。
+- **意义**:此前那两条策略在 operations 上是 fail-closed ——安全但**让该 Agent 永远无法工作**,
+  且失败看起来像权限 bug 而非设计问题。
+
+### 最终归属
+
+| Agent | 策略 | 工具 |
+| --- | --- | --- |
+| pipely(编排者) | preflight, bind_flow, 两条裁决记录, 两条派发闸门 | quality_gate, verify_governance |
+| architect | worktree_guard | — |
+| governance | read_only_catalog | bot_selfcheck |
+| operations | no_platform_admin_via_scheduler | sync_catalog |
+| consumer | read_only_catalog | — |
+
+### 提示词同步
+
+三处改写:编排者新增"你判定,子 Agent 观测"与"每次派发必带 phase";
+governance 改为**报告观测到的值**而非跑核验;operations 改为**报告量到的数**而非跑门禁。
+两处子 Agent 的提示词都明确要求"报告观测而非结论"——
+"这个 Domain 是对的"没法拿去做比较,而那正是这套安排要摆脱依赖的那类断言。
+
+### 残余限度(须记录)
+
+子 Agent 报告的观测值仍**经由模型转述**。相比原设计(同一个模型既做事又宣称做完)这是实质增强:
+判定是确定性函数,且观测方与判定方分离。但它**不等于**观测值不可伪造。
+真正封死这条路需要方案 (a)——裁决落到 OpenMetadata 再读回。已如实记录,不夸大当前强度。

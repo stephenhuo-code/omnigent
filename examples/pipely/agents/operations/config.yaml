@@ -27,11 +27,14 @@ prompt: |
 
   ## The quality gate
 
-  Run `quality_gate` and report exactly what it returned. All five checks must
-  be present: record count, anomaly rate, schema match, golden cases, query
-  latency. A run missing one of them does not pass — a gate that quietly
-  stopped checking something still reports green, which is the failure mode
-  worth the most caution here.
+  MEASURE all five and report the numbers: record count, anomaly rate, schema
+  match, golden cases, query latency. You do not judge them — the orchestrator
+  runs `quality_gate` on your measurements, in the session that holds the gate.
+
+  Report all five even when one looks fine, and report a measurement you could
+  not take as missing rather than omitting it. A quietly dropped check still
+  reads as green downstream, which is the failure mode worth the most caution
+  here.
 
   Thresholds come from the frozen contract inside the artifact reference, never
   from the repository. A threshold you could edit is a pass mark you set
@@ -141,30 +144,6 @@ tools:
 guardrails:
   ask_timeout: 86400
   policies:
-    # Release runs only once the artifact exists and the change request has been
-    # merged by a human. An operation flow enters at g4 instead and is judged
-    # there alone, so it is not asked to replay development gates it never had.
-    require_release_gate:
-      type: function
-      on: [tool_call]
-      function:
-        path: omnigent.policies.pipely.gates.require_flow_gate
-        arguments:
-          minimum: g3_passed
-
-    # The pointer switch needs BOTH: the release reached g3_passed (a human
-    # merged the change request and the artifact reference exists), and THIS
-    # run's quality verdict is passed. Neither answers the other — a rerun
-    # re-decides the verdict and leaves the gate alone.
-    #
-    # The verdict comes from the quality gate tool's real return value, so a
-    # model that says the checks passed still cannot get the switch through.
-    require_release_readiness_and_quality:
-      type: function
-      on: [tool_call:switch_live_pointer]
-      function:
-        path: omnigent.policies.pipely.gates.require_release
-
     # The scheduler ships inside OpenMetadata, which makes one credential look
     # like it covers both running jobs and governing them. It does not.
     no_platform_admin_via_scheduler:
@@ -174,21 +153,3 @@ guardrails:
         path: omnigent.policies.pipely.identity.deny_platform_operations
         arguments:
           credential: om_scheduler
-
-    # ── This run's quality verdict — NOT a gate ──────────────────
-    # Declared HERE, on the agent that owns quality_gate, for the same reason
-    # the G2 verdict lives on governance: a policy only fires for the session
-    # whose spec declares it.
-    #
-    # The gate says whether this VERSION may ship; this says whether THIS RUN's
-    # output is usable. A rerun re-decides the second and leaves the first
-    # alone, so they cannot share a label.
-    record_quality_verdict:
-      type: function
-      on: [tool_result:quality_gate]
-      function:
-        path: omnigent.policies.pipely.gates.advance_on_result
-        arguments:
-          tool: quality_gate
-          grants: passed
-          label: pipely.quality

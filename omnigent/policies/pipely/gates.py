@@ -89,13 +89,19 @@ def bind_flow() -> Callable[[_Json, _Json], _Json]:
     return _evaluate
 
 
-def require_flow_gate(*, minimum: str) -> Callable[[_Json, _Json], _Json]:
+def require_flow_gate(
+    *,
+    minimum: str,
+    applies_to_phase: str | None = None,
+) -> Callable[[_Json, _Json], _Json]:
     """Factory: gate a call according to the flow instance's own path.
 
     Development work climbs G1 to G4; an operation enters at release and is
     judged on that gate alone.
 
     :param minimum: The gate a call requires on the development path.
+    :param applies_to_phase: Only judge dispatches naming this phase; other
+        calls pass. ``None`` judges every call.
     :returns: An evaluator ``fn(event, config)`` returning a V0 decision.
     """
 
@@ -106,6 +112,12 @@ def require_flow_gate(*, minimum: str) -> Callable[[_Json, _Json], _Json]:
         :param config: Runtime config dict (unused).
         :returns: ALLOW / DENY decision dict.
         """
+        # Earlier phases are how the flow reaches the gated one at all, so
+        # holding them to the same value would deadlock the whole thing.
+        if applies_to_phase is not None:
+            arguments = event.get("data", {}).get("arguments") or {}
+            if arguments.get("phase") != applies_to_phase:
+                return {"result": "ALLOW"}
         labels = event.get("context", {}).get("labels") or {}
         reached = labels.get(GATE_LABEL)
         # An operation enters at release: it is judged on the release gate
@@ -196,12 +208,14 @@ def advance_on_result(
     return _evaluate
 
 
-def require_release() -> Callable[[_Json, _Json], _Json]:
+def require_release(*, applies_to_phase: str | None = None) -> Callable[[_Json, _Json], _Json]:
     """Factory: refuse the pointer switch unless both conditions hold.
 
     The gate says this VERSION may ship; the quality verdict says THIS RUN's
     output is usable. Neither answers the other, so both are required.
 
+    :param applies_to_phase: Only judge dispatches naming this phase; other
+        calls pass. ``None`` judges every call.
     :returns: An evaluator ``fn(event, config)`` returning a V0 decision.
     """
 
@@ -212,6 +226,13 @@ def require_release() -> Callable[[_Json, _Json], _Json]:
         :param config: Runtime config dict (unused).
         :returns: ALLOW / DENY decision dict.
         """
+        # The orchestrator dispatches every phase through one tool, so the
+        # guard tells them apart by the ARGUMENT it was called with — never by
+        # the wording of the task, which is the model's to choose.
+        if applies_to_phase is not None:
+            arguments = event.get("data", {}).get("arguments") or {}
+            if arguments.get("phase") != applies_to_phase:
+                return {"result": "ALLOW"}
         labels = event.get("context", {}).get("labels") or {}
         reached = labels.get(GATE_LABEL)
         quality = labels.get(QUALITY_LABEL)

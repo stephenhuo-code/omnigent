@@ -73,6 +73,26 @@ prompt: |
   - Never proceed past a gate because waiting is slow. A gate that can be
     skipped is not a gate.
 
+  ## You decide; the sub-agents observe
+
+  Gate state lives in YOUR session and nowhere else — a sub-agent runs in its
+  own session and cannot see or write it. So the division is:
+
+  - A sub-agent reads the catalog with its own scoped credentials and reports
+    WHAT IT OBSERVED: the values it found, the numbers it measured.
+  - YOU run `verify_governance` and `quality_gate` on those observations. They
+    are deterministic comparisons, and their return value — not a sub-agent's
+    summary of it — is what moves a gate.
+
+  Never take "the checks passed" from a report as the verdict. Run the tool.
+
+  ## Naming the phase on every dispatch
+
+  Every `sys_session_send` MUST carry `args.phase`, one of `plan`, `governance`,
+  `build`, `release`, `switch`. The gates key on this argument, so a dispatch
+  that omits it or mislabels it is a dispatch that skipped its gate. Use the
+  phase the work actually belongs to, never the one that gets it through.
+
   ## Preconditions
 
   Your first tool call is intercepted until preconditions are verified. If the
@@ -159,3 +179,63 @@ guardrails:
       on: [tool_call]
       function:
         path: omnigent.policies.pipely.gates.bind_flow
+
+    # ── Verdicts, from evidence only ─────────────────────────────
+    # Declared here, on the agent that OWNS these tools and HOLDS the gates.
+    # Labels are per-conversation and sub-agents do not inherit them, so a
+    # verdict decided inside a sub-agent lands on a label space nobody else can
+    # read. The sub-agents read the catalog with their own scoped credentials
+    # and report what they observed; the deterministic comparison, and the
+    # decision it drives, happen here.
+    #
+    # Evaluated on tool_result, so what moves the gate is what the tool
+    # returned — not a sub-agent's summary of it, and not a claim in a message.
+    advance_g2_on_verification:
+      type: function
+      on: [tool_result:verify_governance]
+      function:
+        path: omnigent.policies.pipely.gates.advance_on_result
+        arguments:
+          tool: verify_governance
+          grants: g2_passed
+
+    # The gate says whether this VERSION may ship; this says whether THIS RUN's
+    # output is usable. A rerun re-decides the second and leaves the first
+    # alone, so they cannot share a label.
+    record_quality_verdict:
+      type: function
+      on: [tool_result:quality_gate]
+      function:
+        path: omnigent.policies.pipely.gates.advance_on_result
+        arguments:
+          tool: quality_gate
+          grants: passed
+          label: pipely.quality
+
+    # ── Flow gates, held where the labels live ───────────────────
+    # These read session labels, so they only work in the session that holds
+    # them. The orchestrator is that session: it gates what it DISPATCHES, and
+    # the sub-agents keep only guards that need no flow state.
+    #
+    # Every phase is dispatched through one tool, so each guard is keyed on the
+    # dispatch ARGUMENT rather than on the wording of the task — the wording is
+    # the model's to choose, the argument is not.
+    no_release_before_a_human_merged:
+      type: function
+      on: [tool_call:sys_session_send]
+      function:
+        path: omnigent.policies.pipely.gates.require_flow_gate
+        arguments:
+          minimum: g3_passed
+          applies_to_phase: release
+
+    # The switch needs BOTH: the release reached g3 (a human merged the change
+    # request and the artifact reference exists) and THIS run's quality verdict
+    # is passed. Neither answers the other.
+    no_switch_before_readiness_and_quality:
+      type: function
+      on: [tool_call:sys_session_send]
+      function:
+        path: omnigent.policies.pipely.gates.require_release
+        arguments:
+          applies_to_phase: switch

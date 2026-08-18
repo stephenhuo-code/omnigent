@@ -124,6 +124,10 @@ profile 记录的 `acceptance` 是 `uv run pytest tests/e2e_ui`——Playwright 
 | U69 | 管线名互为前缀时不得被判为同一作用域(如 `orders_daily` 与 `orders_daily_archive`) | FR-105, SC-040 | example | DONE | `tests/policies/pipely/test_identity.py::test_a_pipeline_whose_name_merely_starts_the_same_is_not_in_scope`(循环中新增,见 Cycle 30/31) |
 | U70 | 前置校验失败时把缺失项写入 `pipely.preflight.missing` 标签 | FR-060, data-model | example | DONE | `tests/policies/pipely/test_preflight.py::test_a_failed_preflight_records_the_missing_items_on_the_session`(循环中新增,见更正条目) |
 | U73 | 读取工具裁决的策略必须声明在**拥有该工具的 Agent** 上,否则永不触发 | FR-097, SC-036 | contract | DONE | `tests/policies/pipely/test_agent_declarations.py::test_every_verdict_policy_lives_on_the_agent_that_owns_its_tool`(实现期发现:两条裁决策略都挂在编排者,而工具跑在子 Agent 里) |
+| U74 | 裁决工具归**持有闸门的 Agent** 所有,子 Agent 只报告观测值 | FR-097, data-model | contract | DONE | `tests/policies/pipely/test_agent_declarations.py::test_the_verdict_tools_belong_to_the_agent_that_holds_the_gates` |
+| U75 | 子 Agent 不得挂载读取流程标签的策略(它永远看不到) | FR-090, data-model | contract | DONE | `tests/policies/pipely/test_agent_declarations.py::test_no_sub_agent_gates_on_labels_it_can_never_see` |
+| U76 | 只有切换派发受发布条件约束,其余阶段放行 | FR-107 | example | DONE | `tests/policies/pipely/test_gates.py::test_only_the_switch_dispatch_is_held_to_the_release_conditions` |
+| U77 | 只有发布派发受 G3 约束,早期阶段放行(否则死锁) | FR-045 | example | DONE | `tests/policies/pipely/test_gates.py::test_only_the_release_dispatch_is_held_to_the_release_gate` |
 | U29 | 架构开发 bot 写沙箱 Domain 内资产时放行 | FR-103 | example | DONE | `tests/policies/pipely/test_identity.py::test_the_architect_bot_may_write_inside_its_sandbox_domain` |
 | U30 | 架构开发 bot 写沙箱 Domain 外资产时拒绝 | FR-103, SC-038 | example | DONE | `tests/policies/pipely/test_identity.py::test_the_architect_bot_may_not_write_governed_assets_outside_the_sandbox` |
 | U31 | 用调度凭证发起目录平台级操作时拒绝 | FR-057 | example | DONE | `tests/policies/pipely/test_identity.py::test_a_scheduler_credential_cannot_reach_platform_administration` |
