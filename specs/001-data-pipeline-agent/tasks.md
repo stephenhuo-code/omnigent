@@ -219,12 +219,12 @@
 ## Phase N: Polish & Cross-Cutting Concerns
 
 - [X] T075 [P] [U67][U68] 补齐 `examples/pipely/.env.example`:10 项凭证逐项注释用途、归属 Agent、是否必需;标明平台管理凭证**不在此列**
-- [ ] T076 [P] 编写 `examples/pipely/README.md`:前置配置清单(含**必须手工创建的引导用只读 bot**)、启动方式(运行时不解析配置文件,须 `--env-file` 注入)
-- [ ] T077 [P] 为 `omnigent/policies/pipely/` 与 `omnigent/tools/pipely/` 补模块级文档字符串,说明各自承载的 FR 编号
-- [ ] T078 用 `.specify/memory/pytest-known.sh --compare tests/policies tests/tools` 跑区域套件,确认**零新增失败**
+- [X] T076 [P] 编写 `examples/pipely/README.md`:前置配置清单(含**必须手工创建的引导用只读 bot**)、启动方式(运行时不解析配置文件,须 `--env-file` 注入)
+- [X] T077 [P] 为 `omnigent/policies/pipely/` 与 `omnigent/tools/pipely/` 补模块级文档字符串,说明各自承载的 FR 编号
+- [X] T078 用 `.specify/memory/pytest-known.sh --compare tests/policies tests/tools` 跑区域套件,确认**零新增失败**
 - [ ] T079 用 `.specify/memory/pytest-known.sh --compare -m "not databricks" -n 8 --dist=loadfile` 跑全量,确认零新增失败
 - [ ] T080 运行 `uvx pre-commit run --all-files`,修完 ruff / pyrefly 的全部报告(宪法原则 III)
-- [ ] T081 逐条比对 `specs/001-data-pipeline-agent/spec.md` 的 40 条成功标准与 `tests/{policies,tools,integration}/pipely/` 下的用例,补齐缺口(FR-106、SC-031)
+- [X] T081 逐条比对 `specs/001-data-pipeline-agent/spec.md` 的 40 条成功标准与 `tests/{policies,tools,integration}/pipely/` 下的用例,补齐缺口(FR-106、SC-031)
 - [ ] T082 按 `.github/pull_request_template.md` 填写 PR,勾选类型与测试覆盖,填 Coverage notes
 
 ---
