@@ -913,3 +913,60 @@ E   assert [] != []
   → `AssertionError: these would advance g3_passed without a human: ['pipely/record_quality_verdict']`。
   恢复后 92 passed。
 - **绿**:实现未变。这一条现在守着这次裁决的结果:**谁把它改回去,谁立刻红,并且被指名**。
+
+## Cycle 83 · U73 · 裁决策略必须与它监视的工具同处一个 Agent(实现期发现)
+
+**发现路径**:用户问"为什么 tasks 全没打勾"。查证后确认他看的是主 checkout(勾在 worktree 分支上),
+但顺势回补 Phase 6 的打勾时,我审计了"勾在部分完成行为上"的任务,由此翻出这个缺陷。
+
+- **红**:`tests/policies/pipely/test_agent_declarations.py::test_every_verdict_policy_lives_on_the_agent_that_owns_its_tool`
+
+  ```
+  AssertionError: these verdict policies will never fire:
+    pipely/advance_g2_on_verification watches verify_governance owned by governance;
+    pipely/record_quality_verdict     watches quality_gate       owned by operations
+  ```
+
+- **根因**:`RunnerToolPolicyGate.from_spec(spec)`(`omnigent/runner/policy.py:151`)只读**该 spec 自己**的
+  `guardrails.policies`。子 Agent 是独立 AgentSpec。`omnigent/runtime/policies/builder.py:361` 同理:
+  `agent_policy_specs` 取自子 Agent 自身;从 root 继承的只有**运行时会话策略**(`sys_add_policy` 加的),
+  **不含父 spec 的 agent 策略**。
+  所以两条裁决策略挂在编排者、而工具跑在子 Agent 里 —— **永远不会触发**。
+- **与上一个缺陷同类**:策略层证明有效,接线层完全失效。
+  A18/A34 抓不到它,因为那两条测试**手工把策略装进引擎**,没有检查是谁声明的。
+- **绿**:`advance_g2_on_verification` 移到 governance,`record_quality_verdict` 移到 operations。93 passed。
+- **测试写法**:扫描包内全部 Agent 的全部策略,比对 `arguments.tool` 与工具归属,
+  而不是检查我记得的那两条 —— 日后新增一条挂错位置的裁决策略,正是它该抓的。
+
+## 逃生舱 · 标签不跨子会话传递 · **闸门模型的架构前提不成立**
+
+修 U73 时查证标签作用域,发现一个**比 U73 更根本的问题**,已停下上报,未改写设计。
+
+**事实**(均在代码中核实):
+
+| 项 | 结论 | 出处 |
+| --- | --- | --- |
+| 标签作用域 | **逐会话**,子会话不继承父标签 | `builder.py:389` `_seed_and_load_labels(conversation_id=conversation_id)` |
+| 会话状态 | 仅两个成本相关 key 从 root 种入,注释明写 "Other session_state stays per-conversation" | `builder.py:394-410` |
+| 子会话创建 | 不复制父标签 | `sqlalchemy_store.py:272` |
+| 子 Agent 是否独立会话 | 是(代码显式处理 `root_conversation_id != conversation_id`) | `builder.py:403` |
+
+**后果**:`data-model.md` 的闸门模型假定 `pipely.gate` / `pipely.quality` / `pipely.preflight`
+是**贯穿整个流程**的会话状态。但五个 Agent 各有自己的会话,标签空间彼此隔离:
+
+- governance 写下的 `g2_passed`,编排者与 operations 都看不见;
+- operations 的 `require_release_gate` 读自己会话的 `pipely.gate`,而没有任何东西会把它写到 `g3_passed`;
+- 编排者首个工具调用写的 `preflight` 标签,管不到子 Agent。
+
+**U73 修复后仍成立的部分**:operations 内部 `record_quality_verdict` → `pipely.quality` →
+`require_release_readiness_and_quality` 是**同一会话内**的链路,现在真的通了。
+跨 Agent 的闸门流转不通。
+
+**为什么不自行改**:可选路径至少三条,每条都动 spec 或动框架 ——
+(a) 闸门状态改存 OpenMetadata 管线资产(事实来源),策略读它而非读标签;
+(b) 把跨 Agent 的闸门流转改由编排者持有:子 Agent 只返回裁决,编排者在自己会话里推进闸门;
+(c) 向框架提出让子会话继承父标签(改的是 omnigent 本身,超出本特性范围)。
+按 Hard Rule 6 与 Phase 4 的逃生舱条款,停下并同时报出。
+
+**受影响的已完成条目**:A34 的链路测试仍有效(它在**单一会话**内证明了工具→策略→标签→下一次调用),
+但它不证明跨 Agent 的闸门流转。已在本条目中写明,不留隐性错误。

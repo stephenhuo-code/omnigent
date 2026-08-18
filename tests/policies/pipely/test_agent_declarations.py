@@ -190,3 +190,32 @@ def test_the_change_request_and_git_credentials_are_separate_entries() -> None:
     assert "OMNIGENT_AIRFLOW_TOKEN" in declared
     # The scheduler credential is its own entry, not folded into the catalog's.
     assert "OMNIGENT_OM_RELEASE" in declared
+
+
+def test_every_verdict_policy_lives_on_the_agent_that_owns_its_tool(spec: AgentSpec) -> None:
+    """A tool_result policy only fires for the agent whose spec declares it.
+
+    Sub-agents are separate specs and the runner builds each session's policy
+    set from its own guardrails (runner/policy.py::from_spec). Only runtime
+    session policies are inherited from the root conversation — agent policies
+    are not. So a verdict policy declared on the orchestrator, watching a tool
+    that runs inside a sub-agent, never runs at all: the label is never
+    written, and the gate it guards can never open.
+    """
+    owner_of_tool = {
+        tool.name: agent.name for agent in spec.sub_agents for tool in agent.local_tools
+    }
+
+    misplaced: list[str] = []
+    for agent in [spec, *spec.sub_agents]:
+        for policy in agent.guardrails.policies or []:
+            watched = (getattr(getattr(policy, "function", None), "arguments", None) or {}).get(
+                "tool"
+            )
+            if watched is None:
+                continue
+            owner = owner_of_tool.get(str(watched))
+            if owner is not None and owner != agent.name:
+                misplaced.append(f"{agent.name}/{policy.name} watches {watched} owned by {owner}")
+
+    assert misplaced == [], "these verdict policies will never fire: " + "; ".join(misplaced)

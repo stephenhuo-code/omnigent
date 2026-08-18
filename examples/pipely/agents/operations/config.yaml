@@ -174,3 +174,21 @@ guardrails:
         path: omnigent.policies.pipely.identity.deny_platform_operations
         arguments:
           credential: om_scheduler
+
+    # ── This run's quality verdict — NOT a gate ──────────────────
+    # Declared HERE, on the agent that owns quality_gate, for the same reason
+    # the G2 verdict lives on governance: a policy only fires for the session
+    # whose spec declares it.
+    #
+    # The gate says whether this VERSION may ship; this says whether THIS RUN's
+    # output is usable. A rerun re-decides the second and leaves the first
+    # alone, so they cannot share a label.
+    record_quality_verdict:
+      type: function
+      on: [tool_result:quality_gate]
+      function:
+        path: omnigent.policies.pipely.gates.advance_on_result
+        arguments:
+          tool: quality_gate
+          grants: passed
+          label: pipely.quality

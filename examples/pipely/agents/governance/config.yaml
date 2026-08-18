@@ -111,3 +111,22 @@ guardrails:
         path: omnigent.policies.pipely.identity.require_read_only
         arguments:
           bot: governance
+
+    # ── The G2 verdict, from evidence only ───────────────────────
+    # Declared HERE, on the agent that owns verify_governance — not on the
+    # orchestrator. The runner builds each session's policy set from that
+    # session's own spec (runner/policy.py::from_spec); only runtime session
+    # policies are inherited from the root. A verdict policy sitting on the
+    # parent while its tool runs here would simply never fire.
+    #
+    # Evaluated on tool_result, so the decision comes from what the tool
+    # actually returned. A message asserting the governance work landed moves
+    # nothing — that claim is the failure mode this exists to prevent.
+    advance_g2_on_verification:
+      type: function
+      on: [tool_result:verify_governance]
+      function:
+        path: omnigent.policies.pipely.gates.advance_on_result
+        arguments:
+          tool: verify_governance
+          grants: g2_passed

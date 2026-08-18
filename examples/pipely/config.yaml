@@ -159,34 +159,3 @@ guardrails:
       on: [tool_call]
       function:
         path: omnigent.policies.pipely.gates.bind_flow
-
-    # ── Gate advance, from evidence only ─────────────────────────
-    # Evaluated on tool_result, so the decision is made from what the tool
-    # actually returned. A message asserting the governance check passed moves
-    # nothing. This is the whole anti-lying loop: deterministic tool → policy
-    # reads the real return value → policy writes the label → later calls are
-    # gated on that label.
-    advance_g2_on_verification:
-      type: function
-      on: [tool_result:verify_governance]
-      function:
-        path: omnigent.policies.pipely.gates.advance_on_result
-        arguments:
-          tool: verify_governance
-          grants: g2_passed
-
-    # ── This run's quality verdict — NOT a gate ──────────────────
-    # The gate says whether this VERSION may ship; this says whether THIS RUN's
-    # output is usable. Rerun the pipeline and the second is re-decided while
-    # the first does not move, so they cannot share a label. Wiring the quality
-    # gate to advance g3 would also replace "a human merged the change request"
-    # with an automatic verdict, deleting one of the four human checkpoints.
-    record_quality_verdict:
-      type: function
-      on: [tool_result:quality_gate]
-      function:
-        path: omnigent.policies.pipely.gates.advance_on_result
-        arguments:
-          tool: quality_gate
-          grants: passed
-          label: pipely.quality
