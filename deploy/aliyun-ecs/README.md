@@ -278,15 +278,66 @@ docker compose exec postgres psql -U omnigent -d omnigent -c "select id, is_admi
 — Docker Hub 在境内连不通。配置上面那个镜像加速器。注意 ACR 帮不上忙：它只
 服务你自己推上去的镜像，`postgres:16-alpine` 这种第三方基础镜像仍走 Docker Hub。
 
-## 接入域名
+## HTTPS 与域名
 
-现在没有域名，直接用 IP 跑。有可用域名后改三处：
+域名**能备案**就走 Caddy overlay（本目录的 `docker-compose.https.yaml` +
+`Caddyfile`，从 `../docker/` 移植）。Caddy 占 80/443，自动签发并续期
+Let's Encrypt 证书，反代到 docker 网络里的 `omnigent:8000`；omnigent 只在
+回环口发布，公网碰不到它。
 
-1. `.env` 的 `OMNIGENT_ACCOUNTS_BASE_URL` 换成 `https://<域名>`
-2. 端口映射改回 `80:8000`，或前置 Caddy / Cloudflare Tunnel
-3. 本地 host 的 `--server` 换成域名
+顺带拿到的是 HTTP/2。这不只是「顺便」：Web UI 每个打开的会话都挂一条长连接的
+event-stream，HTTP/1.1 每源约 6 条连接的上限会让用户多开几个窗口就卡住，
+HTTP/2 把它们复用到一条连接上。
 
-走哪条取决于域名能否备案。**能备案** → Caddy + Let's Encrypt，
-`../docker/docker-compose.https.yaml` 有现成 overlay 可复用。**不能备案**
-（如 Cloudflare 注册的域名）→ Cloudflare Tunnel，ECS 不开任何入站端口，
-`cloudflared` 主动出站连接，同时解决备案和证书两件事。
+**不能备案**（如 Cloudflare 注册的域名）→ Cloudflare Tunnel，ECS 不开任何入站
+端口，`cloudflared` 主动出站连接，同时解决备案和证书两件事。本目录没有现成
+配置。
+
+### 切过去
+
+先动安全组，再部署。反过来的话旧的 `${OMNIGENT_PORT}` 映射已经撤掉、80/443 又
+还没放行，你就把自己关在门外了，只能走控制台 VNC 救。
+
+1. 安全组入方向：
+   - **80/tcp 来源 `0.0.0.0/0`** —— 不能只放自己的出口 IP。HTTP-01 是
+     Let's Encrypt 自己的服务器来验的，源地址不公布，白名单必然验不过。
+   - **443/tcp**，来源按需（想收窄就收窄，挑战不走 443）。
+   - 旧的 8000 那条先留着做回退，验完再删。
+2. DNS 的 A 记录指向 ECS 公网 IP，且**已经生效**——证书签发要靠它。
+3. `.env` 三行：
+
+   ```
+   OMNIGENT_DOMAIN=<域名>
+   COMPOSE_FILE=docker-compose.yaml:docker-compose.https.yaml
+   OMNIGENT_ACCOUNTS_BASE_URL=https://<域名>
+   ```
+
+   `COMPOSE_FILE` 写在 `.env` 里，Compose 自己会读，所以在机器上直接敲
+   `docker compose logs -f caddy` 也能命中 overlay，不用每次重复两个 `-f`。
+4. `./scripts/sync.sh root@<ECS IP>` 然后 `./scripts/deploy.sh`。
+
+`deploy.sh` 在这个模式下等两件事：应用在 `127.0.0.1:8000/health` 起来，以及
+证书真的能用（用 `--resolve` 把连接钉到本机 Caddy，SNI 和 Host 仍是真域名，
+这样不依赖 ECS 能不能回环访问自己的公网 IP——阿里云 EIP 的 hairpin 不可靠）。
+两步都过才算绿。
+
+### 切完要跟着改的
+
+- 本机 host：`omniagent host --server https://<域名>`。
+- 已发出去的邀请链接带着旧的 `:8000`，端口一关就失效，需要重发。
+- `OMNIGENT_ACCOUNTS_BASE_URL` 一旦是 `https://`，session cookie 就启用
+  `__Host-` 前缀（`omnigent/server/accounts_config.py`）。浏览器在纯 HTTP 上
+  会直接丢掉这种 cookie，导致登录无限重定向——所以这三行必须一起改，不能只改
+  两行。Caddy 会把 HTTP 跳到 HTTPS，正常访问碰不到这个坑。
+
+### 排查
+
+**`no working certificate after 120s`** —— 先看 `docker compose logs caddy`。
+最常见是安全组的 80 只放了自己的 IP（见上），其次是 DNS 还没生效或指错 IP。
+
+**反复重建导致签发被拒** —— Let's Encrypt 对同一域名的重复证书是每周 5 张。
+`caddy-data` 卷存着证书和 ACME 账号密钥，别对这套 `down -v`，否则每次重建都
+要重签一张。真要反复调试就先在 Caddyfile 里挂 staging CA。
+
+**ACME 一直超时而不是验证失败** —— 那是 CA 的连通性问题，不是配置问题。
+`Caddyfile` 注释里有换用 ZeroSSL 的写法。

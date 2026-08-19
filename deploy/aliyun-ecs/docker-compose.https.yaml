@@ -1,0 +1,58 @@
+# Optional Caddy overlay — puts auto-HTTPS (Let's Encrypt) in front of the
+# omnigent container. Adapted from ../docker/docker-compose.https.yaml, with
+# one deliberate difference: omnigent keeps a loopback publish instead of
+# dropping its ports entirely, so scripts/deploy.sh can health-check the app
+# itself and you can curl it on the box while debugging the proxy.
+#
+# Turned on from .env rather than the command line — set both:
+#
+#   OMNIGENT_DOMAIN=agent.example.com
+#   COMPOSE_FILE=docker-compose.yaml:docker-compose.https.yaml
+#
+# Compose reads COMPOSE_FILE out of .env, so a plain `docker compose logs -f
+# caddy` on the box picks the overlay up; nobody has to remember two -f flags.
+#
+# Requires Compose v2.24.4+ for the `!override` tag below (`docker compose
+# version`). The base file's port publish has to be replaced, not merged —
+# merging would leave the public 80:8000 in place alongside Caddy's.
+
+services:
+  omnigent:
+    # Loopback only. Caddy reaches this over the docker network; nothing on
+    # the public interface can, independent of the security group. Replaces
+    # the base file's "${OMNIGENT_PORT}:8000" — OMNIGENT_PORT is unused in
+    # this mode.
+    ports: !override
+      - "127.0.0.1:8000:8000"
+    environment:
+      # uvicorn ignores X-Forwarded-* unless the peer is trusted, and it
+      # defaults to trusting 127.0.0.1 only — the peer here is Caddy's
+      # container address on a docker network with no stable subnet, so
+      # client IPs would all log as the proxy. Trusting any peer is safe
+      # given the loopback-only publish: forging the header first requires a
+      # shell on the box.
+      FORWARDED_ALLOW_IPS: "*"
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - omnigent
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      OMNIGENT_DOMAIN: ${OMNIGENT_DOMAIN:?set OMNIGENT_DOMAIN in .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # Holds the issued certificate and the ACME account key. Losing this
+      # volume forces a re-issue on the next boot, which spends Let's
+      # Encrypt's duplicate-certificate allowance (5 per domain per week) —
+      # so don't `down -v` this stack casually.
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  caddy-data:
+  caddy-config:

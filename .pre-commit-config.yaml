@@ -166,7 +166,7 @@ repos:
         name: check yaml syntax
         # docker-compose override files use non-standard tags
         # (`!reset`, `!override`) that PyYAML can't parse.
-        exclude: ^deploy/docker/docker-compose\.[a-z]+\.yaml$
+        exclude: ^deploy/[a-z-]+/docker-compose\.[a-z]+\.yaml$
       - id: check-merge-conflict
         name: check for merge conflicts
       - id: check-added-large-files
